@@ -1,0 +1,6 @@
+{
+  "name": "Agri-Logistics Platform",
+  "description": "An enterprise-grade Agri-Logistics & Rural Connectivity Platform connecting farmers, transporters, warehouses, and buyers across Africa with offline-first support and server-side Gemini AI predictive analytics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
