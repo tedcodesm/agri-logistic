@@ -24,7 +24,6 @@ export default function PublicNavbar({
   function go(page: PublicPage) {
     onNavigate(page);
     setMobileOpen(false);
-    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   return (

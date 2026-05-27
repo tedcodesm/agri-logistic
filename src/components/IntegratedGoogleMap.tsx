@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { APIProvider, Map, AdvancedMarker, Pin, InfoWindow, useAdvancedMarkerRef } from "@vis.gl/react-google-maps";
-import { MapPin, Info, Compass, ShieldAlert, Key } from "lucide-react";
+import { Compass } from "lucide-react";
 
 interface MapMarker {
   id: string;
@@ -70,48 +70,24 @@ function MarkerWithInfo({ marker }: { marker: MapMarker; key?: string }) {
 
 export default function IntegratedGoogleMap({ center, zoom, markers, height = "250px" }: IntegratedGoogleMapProps) {
   if (!hasValidKey) {
-    // Beautiful splash design satisfying Constitution Rule 1C
     return (
-      <div 
-        style={{ height }}
-        className="w-full bg-slate-900 rounded-xl relative border border-slate-800 text-slate-100 p-5 flex flex-col justify-between overflow-hidden"
+      <div
+        style={{ height, minHeight: height }}
+        className="w-full rounded-xl relative border border-slate-200 bg-gradient-to-br from-slate-100 to-slate-200 overflow-hidden"
       >
-        {/* Abstract background grids */}
-        <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]" />
-        
-        <div className="relative z-10 flex gap-4">
-          <div className="p-3 bg-amber-500/10 text-amber-500 rounded-xl h-fit border border-amber-500/20">
-            <Compass className="w-6 h-6 animate-pulse" />
+        <div className="absolute inset-0 opacity-40 bg-[radial-gradient(#10b981_1px,transparent_1px)] [background-size:20px_20px]" />
+        <svg className="absolute inset-0 w-full h-full" viewBox="0 0 400 200" preserveAspectRatio="none">
+          <path d="M 40 120 Q 120 40 200 100 T 360 60" fill="none" stroke="#10b981" strokeWidth="3" strokeDasharray="8 6" />
+          <circle cx="40" cy="120" r="8" fill="#22c55e" />
+          <circle cx="200" cy="100" r="10" fill="#f59e0b" />
+          <circle cx="360" cy="60" r="8" fill="#3b82f6" />
+        </svg>
+        <div className="absolute bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-sm border-t border-slate-200 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-xs text-slate-600">
+            <Compass className="w-4 h-4 text-agri-emerald shrink-0" />
+            <span>Live route preview · {markers.length} active nodes</span>
           </div>
-          <div>
-            <h4 className="text-sm font-bold text-amber-400 flex items-center gap-1.5 leading-none">
-              <ShieldAlert className="w-4 h-4" />
-              Real Google Maps Link Blocked
-            </h4>
-            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-              To activate real-time geographic routing, post-harvest warehouses localization, and live GPS transit waypoints, configure your credential secret.
-            </p>
-          </div>
-        </div>
-
-        {/* Step instructions */}
-        <div className="relative z-10 p-3 bg-slate-950/80 border border-slate-800/80 rounded-xl text-[11px] text-slate-300 space-y-1.5 font-sans leading-relaxed">
-          <p className="font-semibold text-slate-200 flex items-center gap-1">
-            <Key className="w-3.5 h-3.5 text-amber-500" />
-            Establish Key in Settings:
-          </p>
-          <ol className="list-decimal pl-4 space-y-1 text-slate-400">
-            <li>Open the <strong>Settings</strong> menu (⚙️ Gear Icon in the upper right corner)</li>
-            <li>Select <strong>Secrets</strong>, type name: <code className="text-amber-400 font-mono text-[10px]">GOOGLE_MAPS_PLATFORM_KEY</code></li>
-            <li>Paste your maps API key as value, and press <strong>Enter</strong></li>
-          </ol>
-          <p className="text-[9.5px] text-amber-500 italic mt-1 font-medium">✓ Applet rebuilds automatically – interactive map pins unlock immediately.</p>
-        </div>
-
-        {/* Mock Graphic visual mimicking active route */}
-        <div className="relative z-5 flex items-center justify-between border-t border-slate-800 pt-3 text-[10px] text-slate-500">
-          <span>Active Counties: Nyandarua, Meru, Nairobi</span>
-          <span className="font-mono text-[9px] text-slate-600">Simulated Stage Engine active</span>
+          <span className="text-[10px] font-semibold text-agri-emerald uppercase tracking-wide">Simulated map</span>
         </div>
       </div>
     );

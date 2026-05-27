@@ -1,0 +1,272 @@
+import React, { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { useAuth } from "./AuthContext";
+import {
+  Farmer,
+  Buyer,
+  Driver,
+  Vehicle,
+  Warehouse,
+  ProduceListing,
+  DeliveryTrip,
+  Order,
+  ProduceGrade,
+  CargoStatus,
+} from "../types";
+import {
+  SEED_FARMERS,
+  SEED_BUYERS,
+  SEED_DRIVERS,
+  SEED_VEHICLES,
+  SEED_WAREHOUSES,
+  SEED_LISTINGS,
+  SEED_ORDERS,
+} from "../data";
+
+const EMAIL_ENTITY_MAP: Record<string, { farmerId?: string; buyerId?: string; driverId?: string }> = {
+  "farmer@agrilogistics.ke": { farmerId: "F-103" },
+  "buyer@agrilogistics.ke": { buyerId: "B-201" },
+  "driver@agrilogistics.ke": { driverId: "D-301" },
+};
+
+interface DashboardDataContextValue {
+  farmers: Farmer[];
+  buyers: Buyer[];
+  drivers: Driver[];
+  vehicles: Vehicle[];
+  warehouses: Warehouse[];
+  listings: ProduceListing[];
+  orders: Order[];
+  activeTrips: DeliveryTrip[];
+  currentFarmerId: string;
+  currentBuyerId: string;
+  currentDriverId: string;
+  currentFarmer: Farmer;
+  currentBuyer: Buyer;
+  currentDriver: Driver;
+  myListings: ProduceListing[];
+  myOrdersAsFarmer: Order[];
+  myOrdersAsBuyer: Order[];
+  myTrips: DeliveryTrip[];
+  addListing: (listing: ProduceListing) => void;
+  syncListings: (local: ProduceListing[]) => void;
+  placeOrder: (order: Order) => void;
+  addTrip: (trip: DeliveryTrip) => void;
+  updateTripIndex: (tripId: string, idx: number, fuel: number) => void;
+  completeTrip: (tripId: string, proof: string) => void;
+  adjustClimate: (warehouseId: string, tempDelta: number, humDelta: number) => void;
+}
+
+const DashboardDataContext = createContext<DashboardDataContextValue | null>(null);
+
+export function DashboardDataProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  const email = user?.email?.toLowerCase() ?? "";
+  const mapped = EMAIL_ENTITY_MAP[email] ?? {};
+
+  const [farmers] = useState<Farmer[]>(SEED_FARMERS);
+  const [buyers] = useState<Buyer[]>(SEED_BUYERS);
+  const [drivers] = useState<Driver[]>(SEED_DRIVERS);
+  const [vehicles] = useState<Vehicle[]>(SEED_VEHICLES);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>(SEED_WAREHOUSES);
+  const [listings, setListings] = useState<ProduceListing[]>(SEED_LISTINGS);
+  const [orders, setOrders] = useState<Order[]>(SEED_ORDERS);
+  const [activeTrips, setActiveTrips] = useState<DeliveryTrip[]>([]);
+
+  const currentFarmerId = mapped.farmerId ?? farmers[0].id;
+  const currentBuyerId = mapped.buyerId ?? buyers[0].id;
+  const currentDriverId = mapped.driverId ?? drivers[0].id;
+
+  const currentFarmer = farmers.find((f) => f.id === currentFarmerId) ?? farmers[0];
+  const currentBuyer = buyers.find((b) => b.id === currentBuyerId) ?? buyers[0];
+  const currentDriver = drivers.find((d) => d.id === currentDriverId) ?? drivers[0];
+
+  const myListings = useMemo(
+    () => listings.filter((l) => l.farmerId === currentFarmerId),
+    [listings, currentFarmerId]
+  );
+
+  const myOrdersAsBuyer = useMemo(
+    () => orders.filter((o) => o.buyerId === currentBuyerId),
+    [orders, currentBuyerId]
+  );
+
+  const myOrdersAsFarmer = useMemo(() => {
+    const myListingIds = new Set(myListings.map((l) => l.id));
+    return orders.filter((o) => o.listingIds.some((id) => myListingIds.has(id)));
+  }, [orders, myListings]);
+
+  const myTrips = useMemo(
+    () => activeTrips.filter((t) => t.driverId === currentDriverId),
+    [activeTrips, currentDriverId]
+  );
+
+  const addListing = useCallback((listing: ProduceListing) => {
+    setListings((prev) => [listing, ...prev]);
+  }, []);
+
+  const syncListings = useCallback((local: ProduceListing[]) => {
+    const synced = local.map((item) => ({ ...item, syncStatus: "SYNCED" as const }));
+    setListings((prev) => [...synced, ...prev]);
+  }, []);
+
+  const placeOrder = useCallback(
+    (newOrder: Order) => {
+      setOrders((prev) => [newOrder, ...prev]);
+      setListings((prev) =>
+        prev
+          .map((item) => {
+            if (newOrder.listingIds.includes(item.id)) {
+              return { ...item, quantityKg: Math.max(0, item.quantityKg - newOrder.totalQuantityKg) };
+            }
+            return item;
+          })
+          .filter((item) => item.quantityKg > 0)
+      );
+      const targetBuyer = buyers.find((b) => b.id === newOrder.buyerId);
+      if (targetBuyer) {
+        fetch("/api/africastalking/send-sms", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: targetBuyer.phoneNumber.replace(/\s+/g, ""),
+            message: `AgriLink: Order #${newOrder.id} confirmed (${newOrder.totalQuantityKg}Kg). Escrow active.`,
+          }),
+        }).catch(() => undefined);
+      }
+    },
+    [buyers]
+  );
+
+  const addTrip = useCallback((newTrip: DeliveryTrip) => {
+    setActiveTrips((prev) => [newTrip, ...prev]);
+    setOrders((prev) =>
+      prev.map((o) => (o.id === newTrip.orderId ? { ...o, status: CargoStatus.AGGREGATED } : o))
+    );
+  }, []);
+
+  const updateTripIndex = useCallback((tripId: string, idx: number, fuelConsumed: number) => {
+    setActiveTrips((prev) =>
+      prev.map((t) => {
+        if (t.id !== tripId) return t;
+        const waypoints = t.waypoints.map((w, wIdx) =>
+          idx >= (wIdx + 1) * 5 ? { ...w, completed: true } : w
+        );
+        return { ...t, currentLocationIndex: idx, fuelConsumedLiters: fuelConsumed, waypoints };
+      })
+    );
+  }, []);
+
+  const completeTrip = useCallback(
+    (tripId: string, proofCode: string) => {
+      const targetTrip = activeTrips.find((t) => t.id === tripId);
+      if (!targetTrip) return;
+      setActiveTrips((prev) =>
+        prev.map((t) => (t.id === tripId ? { ...t, status: "COMPLETED", deliveryProofCode: proofCode } : t))
+      );
+      setOrders((prev) =>
+        prev.map((o) => (o.id === targetTrip.orderId ? { ...o, status: CargoStatus.DELIVERED } : o))
+      );
+      const associatedOrder = orders.find((o) => o.id === targetTrip.orderId);
+      if (associatedOrder) {
+        setWarehouses((prev) =>
+          prev.map((w) => {
+            if (w.id === "W-501") {
+              return {
+                ...w,
+                currentOccupancyKg: Math.min(
+                  w.totalCapacityKg,
+                  w.currentOccupancyKg + associatedOrder.totalQuantityKg
+                ),
+                gradeDistribution: {
+                  ...w.gradeDistribution,
+                  [ProduceGrade.GRADE_A]:
+                    w.gradeDistribution[ProduceGrade.GRADE_A] + associatedOrder.totalQuantityKg,
+                },
+              };
+            }
+            return w;
+          })
+        );
+      }
+    },
+    [activeTrips, orders]
+  );
+
+  const adjustClimate = useCallback((warehouseId: string, tempDelta: number, humDelta: number) => {
+    setWarehouses((prev) =>
+      prev.map((w) => {
+        if (w.id !== warehouseId) return w;
+        return {
+          ...w,
+          temperatureCelsius: Math.max(1, w.temperatureCelsius + tempDelta),
+          humidityPct: Math.max(5, Math.min(99, w.humidityPct + humDelta)),
+        };
+      })
+    );
+  }, []);
+
+  const value = useMemo(
+    () => ({
+      farmers,
+      buyers,
+      drivers,
+      vehicles,
+      warehouses,
+      listings,
+      orders,
+      activeTrips,
+      currentFarmerId,
+      currentBuyerId,
+      currentDriverId,
+      currentFarmer,
+      currentBuyer,
+      currentDriver,
+      myListings,
+      myOrdersAsFarmer,
+      myOrdersAsBuyer,
+      myTrips,
+      addListing,
+      syncListings,
+      placeOrder,
+      addTrip,
+      updateTripIndex,
+      completeTrip,
+      adjustClimate,
+    }),
+    [
+      farmers,
+      buyers,
+      drivers,
+      vehicles,
+      warehouses,
+      listings,
+      orders,
+      activeTrips,
+      currentFarmerId,
+      currentBuyerId,
+      currentDriverId,
+      currentFarmer,
+      currentBuyer,
+      currentDriver,
+      myListings,
+      myOrdersAsFarmer,
+      myOrdersAsBuyer,
+      myTrips,
+      addListing,
+      syncListings,
+      placeOrder,
+      addTrip,
+      updateTripIndex,
+      completeTrip,
+      adjustClimate,
+    ]
+  );
+
+  return <DashboardDataContext.Provider value={value}>{children}</DashboardDataContext.Provider>;
+}
+
+export function useDashboardData() {
+  const ctx = useContext(DashboardDataContext);
+  if (!ctx) throw new Error("useDashboardData must be used within DashboardDataProvider");
+  return ctx;
+}

@@ -1,262 +1,264 @@
-import React, { useState, useEffect } from "react";
-import { User, LogIn, Key, ShieldCheck, Database, X, AlertCircle } from "lucide-react";
+import React, { useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import { X, Mail, Lock, Loader2, Sprout, AlertCircle, CheckCircle2 } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+import { AuthSession, UserRole } from "../types/auth";
+import RoleCardGrid from "./auth/RoleCard";
 
-interface AuthUser {
-  id: string;
-  name: string;
-  email: string;
-  role: "farmer" | "buyer" | "driver" | "admin";
+const DEMO_ACCOUNTS: { email: string; role: UserRole; label: string }[] = [
+  { email: "farmer@agrilogistics.ke", role: "farmer", label: "Farmer demo" },
+  { email: "buyer@agrilogistics.ke", role: "buyer", label: "Buyer demo" },
+  { email: "driver@agrilogistics.ke", role: "driver", label: "Driver demo" },
+  { email: "admin@agrilogistics.ke", role: "admin", label: "Admin demo" },
+];
+
+const DEMO_PASSWORD = "password123";
+
+function displayNameFromEmail(email: string): string {
+  const local = email.split("@")[0] || "User";
+  return local
+    .split(/[._-]/)
+    .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
+    .join(" ");
 }
 
-interface AuthModalProps {
-  onClose: () => void;
-  onLoginSuccess: (user: AuthUser) => void;
-}
+export default function AuthModal() {
+  const { showAuthModal, closeAuthModal, login, redirectToDashboard } = useAuth();
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState<UserRole>("buyer");
+  const [errorMsg, setErrorMsg] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-export default function AuthModal({ onClose, onLoginSuccess }: AuthModalProps) {
-  const [activeTab, setActiveTab] = useState<"LOGIN" | "REGISTER">("LOGIN");
-  const [email, setEmail] = useState<string>("");
-  const [password, setPassword] = useState<string>("");
-  const [name, setName] = useState<string>("");
-  const [role, setRole] = useState<"farmer" | "buyer" | "driver" | "admin">("farmer");
+  if (!showAuthModal) return null;
 
-  const [errorMsg, setErrorMsg] = useState<string>("");
-  const [successMsg, setSuccessMsg] = useState<string>("");
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [dbUsers, setDbUsers] = useState<any[]>([]);
-  const [isUsingFallback, setIsUsingFallback] = useState<boolean>(true);
-
-  // Fetch registered directory for easy sandbox profile selections
-  useEffect(() => {
-    async function fetchDevDirectory() {
-      try {
-        const res = await fetch("/api/auth/users");
-        const data = await res.json();
-        if (data.users) {
-          setDbUsers(data.users);
-          // Simple diagnostics to check if fallback array is printed
-          const uriValue = data.users.some((u: any) => u.id.startsWith("U-"));
-          setIsUsingFallback(uriValue);
-        }
-      } catch (e) {
-        console.error("Could not fetch user seeds:", e);
-      }
-    }
-    fetchDevDirectory();
-  }, [successMsg]);
-
-  async function handleAuthenticate(e: React.FormEvent) {
-    e.preventDefault();
+  function resetFeedback() {
     setErrorMsg("");
     setSuccessMsg("");
+  }
+
+  function completeLogin(session: AuthSession) {
+    login(session);
+    closeAuthModal();
+    redirectToDashboard(session.role);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    resetFeedback();
     setIsLoading(true);
 
-    const endpoint = activeTab === "LOGIN" ? "/api/auth/login" : "/api/auth/register";
-    const bodyPayload = activeTab === "LOGIN" 
-      ? { email, password } 
-      : { email, password, name, role };
+    const endpoint = mode === "signin" ? "/api/auth/login" : "/api/auth/register";
+    const body =
+      mode === "signin"
+        ? { email, password }
+        : { email, password, role };
 
     try {
       const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(bodyPayload)
+        body: JSON.stringify(body),
       });
-
       const data = await response.json();
+
       if (!response.ok) {
-        throw new Error(data.error || "Authentication failed.");
+        throw new Error(data.error || "Something went wrong. Please try again.");
       }
 
-      setSuccessMsg(activeTab === "LOGIN" ? "Welcome back! Correctly authorized." : "Registration successful!");
-      
-      setTimeout(() => {
-        if (activeTab === "LOGIN" && data.user) {
-          onLoginSuccess(data.user);
-          onClose();
-        } else {
-          // Switch to login tab on register success
-          setActiveTab("LOGIN");
-          setEmail(bodyPayload.email);
-          setPassword("");
-        }
-      }, 1000);
-    } catch (err: any) {
-      setErrorMsg(err.message || "Credential verification failed.");
+      const session: AuthSession = {
+        email: data.email ?? data.user?.email ?? email,
+        role: data.role ?? data.user?.role,
+        name: data.user?.name ?? displayNameFromEmail(data.email ?? email),
+        id: data.user?.id,
+      };
+
+      if (!session.email || !session.role) {
+        throw new Error("Invalid response from server.");
+      }
+
+      setSuccessMsg(mode === "signup" ? "Welcome to Agri Link!" : "Welcome back!");
+      setTimeout(() => completeLogin(session), 400);
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : "Unable to sign in.");
     } finally {
       setIsLoading(false);
     }
   }
 
-  function handleQuickLogin(userSeed: any) {
-    setEmail(userSeed.email);
-    setPassword("password123");
+  function fillDemo(account: (typeof DEMO_ACCOUNTS)[0]) {
+    setEmail(account.email);
+    setPassword(DEMO_PASSWORD);
+    setRole(account.role);
+    resetFeedback();
   }
 
   return (
-    <div id="auth-modal-overlay" className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4 animate-fadeIn">
-      <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl flex flex-col text-slate-100">
-        
-        {/* Header bar */}
-        <div className="p-5 border-b border-slate-800 bg-slate-950 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <Database className="w-5 h-5 text-emerald-500" />
-            <div>
-              <h2 className="text-sm font-extrabold tracking-tight">MongoDB Gateway Login</h2>
-              <span className="text-[10px] uppercase font-bold text-slate-500 block">Agrilogistics Security Node</span>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white cursor-pointer transition-all">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Database state diagnostics info banner */}
-        <div className="p-3 bg-slate-950/50 border-b border-slate-800 flex items-center gap-2 text-xs">
-          <span className={`w-2.5 h-2.5 rounded-full ${isUsingFallback ? "bg-amber-400 animate-pulse" : "bg-emerald-500"}`} />
-          <span className="text-slate-400 text-[11px]">
-            State: {isUsingFallback 
-              ? "Local High-Fidelity Sandboxed Fallback (Configure MONGODB_URI to link Atlas)" 
-              : "Live Connected Atlas MongoDB Cluster"
-            }
-          </span>
-        </div>
-
-        <form onSubmit={handleAuthenticate} className="p-6 space-y-4 flex-1">
-          {/* Tabs header */}
-          <div className="grid grid-cols-2 bg-slate-950 p-1 rounded-xl border border-slate-800">
-            <button
-              type="button"
-              onClick={() => { setActiveTab("LOGIN"); setErrorMsg(""); }}
-              className={`py-2 text-xs font-bold rounded-lg transition-all ${
-                activeTab === "LOGIN" ? "bg-slate-800 text-emerald-400 shadow-sm" : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              Sign In Account
-            </button>
-            <button
-              type="button"
-              onClick={() => { setActiveTab("REGISTER"); setErrorMsg(""); }}
-              className={`py-2 text-xs font-bold rounded-lg transition-all ${
-                activeTab === "REGISTER" ? "bg-slate-800 text-emerald-400 shadow-sm" : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              Sign Up (Register)
-            </button>
-          </div>
-
-          {/* Feedback logs */}
-          {errorMsg && (
-            <div className="p-3 bg-red-950/40 border border-red-900 text-red-400 text-xs rounded-xl flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-              <span>{errorMsg}</span>
-            </div>
-          )}
-
-          {successMsg && (
-            <div className="p-3 bg-emerald-950/40 border border-emerald-900 text-emerald-400 text-xs rounded-xl flex items-start gap-2">
-              <ShieldCheck className="w-4 h-4 mt-0.5 flex-shrink-0" />
-              <span>{successMsg}</span>
-            </div>
-          )}
-
-          <div className="space-y-3 font-sans text-xs text-slate-300">
-            {activeTab === "REGISTER" && (
-              <>
-                <div>
-                  <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1">Human Name</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Grace Wanjiku"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-755 rounded-lg p-2.5 outline-none focus:border-emerald-500 text-white"
-                  />
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-slate-950/70 backdrop-blur-md p-0 sm:p-4"
+        onClick={closeAuthModal}
+      >
+        <motion.div
+          initial={{ opacity: 0, y: 24, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 16, scale: 0.98 }}
+          transition={{ type: "spring", damping: 26, stiffness: 320 }}
+          onClick={(e) => e.stopPropagation()}
+          className="w-full max-w-[440px] max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-gradient-to-b from-slate-900 to-slate-950 border border-slate-800 shadow-2xl text-slate-100"
+          role="dialog"
+          aria-labelledby="auth-modal-title"
+        >
+          <div className="p-6 sm:p-8">
+            <div className="flex justify-between items-start gap-4 mb-6">
+              <div className="flex gap-3">
+                <div className="p-2.5 rounded-2xl bg-gradient-to-br from-agri-emerald to-emerald-700 shadow-lg shadow-emerald-500/20">
+                  <Sprout className="w-6 h-6 text-white" />
                 </div>
-
                 <div>
-                  <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1">Ecosystem Role</label>
-                  <div className="grid grid-cols-4 gap-1">
-                    {(["farmer", "buyer", "driver", "admin"] as const).map(r => (
-                      <button
-                        key={r}
-                        type="button"
-                        onClick={() => setRole(r)}
-                        className={`capitalize py-2 rounded-lg font-semibold transition-all text-[10px] border ${
-                          role === r 
-                            ? "bg-emerald-500/10 text-emerald-400 border-emerald-500" 
-                            : "bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200"
-                        }`}
-                      >
-                        {r}
-                      </button>
-                    ))}
-                  </div>
+                  <h2 id="auth-modal-title" className="text-xl font-display font-bold text-white tracking-tight">
+                    Welcome to Agri Link
+                  </h2>
+                  <p className="text-sm text-slate-400 mt-0.5">
+                    Secure agricultural trade &amp; logistics platform
+                  </p>
                 </div>
-              </>
+              </div>
+              <button
+                type="button"
+                onClick={closeAuthModal}
+                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 p-1 rounded-2xl bg-slate-950 border border-slate-800 mb-6">
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("signin");
+                  resetFeedback();
+                }}
+                className={`py-2.5 text-sm font-semibold rounded-xl transition-all ${
+                  mode === "signin" ? "bg-slate-800 text-white shadow-sm" : "text-slate-500 hover:text-slate-300"
+                }`}
+              >
+                Sign in
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("signup");
+                  resetFeedback();
+                }}
+                className={`py-2.5 text-sm font-semibold rounded-xl transition-all ${
+                  mode === "signup" ? "bg-slate-800 text-white shadow-sm" : "text-slate-500 hover:text-slate-300"
+                }`}
+              >
+                Create account
+              </button>
+            </div>
+
+            {errorMsg && (
+              <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-sm flex gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
+            {successMsg && (
+              <div className="mb-4 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-sm flex gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{successMsg}</span>
+              </div>
             )}
 
-            <div>
-              <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1">Email Username</label>
-              <input
-                type="email"
-                required
-                placeholder="e.g. user@agrilogistics.ke"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-755 rounded-lg p-2.5 outline-none focus:border-emerald-500 text-white"
-              />
-            </div>
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {mode === "signup" && (
+                <div>
+                  <p className="text-xs font-semibold text-slate-400 mb-3 uppercase tracking-wider">
+                    I am joining as
+                  </p>
+                  <RoleCardGrid value={role} onChange={setRole} />
+                </div>
+              )}
 
-            <div>
-              <label className="block text-[10px] uppercase font-bold text-slate-500 mb-1">Account Password</label>
-              <input
-                type="password"
-                required
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-755 rounded-lg p-2.5 outline-none focus:border-emerald-500 text-white"
-              />
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1.5">Email</label>
+                <div className="relative">
+                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <input
+                    type="email"
+                    required
+                    autoComplete="email"
+                    placeholder="you@company.co.ke"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-950 border border-slate-700 text-white placeholder:text-slate-600 focus:outline-none focus:border-agri-emerald focus:ring-2 focus:ring-agri-emerald/20 text-sm"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1.5">Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <input
+                    type="password"
+                    required
+                    autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-950 border border-slate-700 text-white placeholder:text-slate-600 focus:outline-none focus:border-agri-emerald focus:ring-2 focus:ring-agri-emerald/20 text-sm"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full py-3.5 rounded-xl bg-agri-emerald hover:bg-agri-emerald-dark disabled:opacity-60 text-white font-bold text-sm transition-all shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    {mode === "signin" ? "Signing in…" : "Creating account…"}
+                  </>
+                ) : mode === "signin" ? (
+                  "Sign in"
+                ) : (
+                  "Create account"
+                )}
+              </button>
+            </form>
+
+            <div className="mt-8 pt-6 border-t border-slate-800">
+              <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-3">
+                Quick demo access
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {DEMO_ACCOUNTS.map((acc) => (
+                  <button
+                    key={acc.email}
+                    type="button"
+                    onClick={() => fillDemo(acc)}
+                    className="text-xs px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-slate-300 hover:border-agri-emerald/50 hover:text-white transition-colors"
+                  >
+                    {acc.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
-
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:bg-slate-800 text-slate-950 font-bold py-3 rounded-xl text-xs transition-all cursor-pointer flex justify-center items-center gap-1.5 shadow-lg shadow-emerald-500/10"
-          >
-            <LogIn className="w-4 h-4 text-slate-950" />
-            {isLoading ? "Validating security..." : activeTab === "LOGIN" ? "Authorize Sign In" : "Register Account"}
-          </button>
-        </form>
-
-        {/* Dynamic Dev account presets directory */}
-        {dbUsers.length > 0 && (
-          <div className="p-5 border-t border-slate-800 bg-slate-950">
-            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">
-              Ecosystem Presets Directory (Quick Click to Fill credentials)
-            </label>
-            <div className="flex flex-wrap gap-1.5 max-h-[140px] overflow-y-auto pr-1">
-              {dbUsers.map((u: any) => (
-                <button
-                  key={u.id}
-                  onClick={() => handleQuickLogin(u)}
-                  className="bg-slate-900 border border-slate-800 hover:border-emerald-500/50 hover:bg-slate-850 p-1.5 px-2.5 rounded-lg text-left text-[11px] text-slate-300 transition-all flex items-center justify-between cursor-pointer w-[48%]"
-                >
-                  <div className="truncate pr-1">
-                    <strong className="block text-slate-100 truncate text-[10.5px]">{u.name}</strong>
-                    <span className="text-[9.5px] text-slate-500 block truncate font-mono">{u.email}</span>
-                  </div>
-                  <span className="text-[8px] uppercase px-1.5 py-0.5 bg-slate-950 font-bold rounded text-emerald-400 capitalize">{u.role}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-      </div>
-    </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
   );
 }

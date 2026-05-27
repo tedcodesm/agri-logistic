@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import { 
   Search, 
@@ -30,10 +30,21 @@ interface BuyersPanelProps {
   listings: ProduceListing[];
   orders: Order[];
   onPlaceOrder: (order: Order) => void;
+  /** When true, hides account switcher (dashboard marketplace). */
+  embedded?: boolean;
+  /** Lock checkout to this buyer id (logged-in user). */
+  initialBuyerId?: string;
 }
 
-export default function BuyersPanel({ buyers, listings, orders, onPlaceOrder }: BuyersPanelProps) {
-  const [selectedBuyerId, setSelectedBuyerId] = useState<string>("B-201");
+export default function BuyersPanel({
+  buyers,
+  listings,
+  orders,
+  onPlaceOrder,
+  embedded = false,
+  initialBuyerId,
+}: BuyersPanelProps) {
+  const [selectedBuyerId, setSelectedBuyerId] = useState<string>(initialBuyerId ?? "B-201");
   const [searchCrop, setSearchCrop] = useState<string>("");
   const [filterCounty, setFilterCounty] = useState<string>("All");
   
@@ -70,7 +81,11 @@ export default function BuyersPanel({ buyers, listings, orders, onPlaceOrder }: 
   const totalCost = cart.reduce((acc, c) => acc + (c.quantityKg * c.pricePerKgKes), 0);
 
   // Trigger PesaPal Secure Checkout Gateway
-  const [pesapalIframeUrl, setPesapalIframeUrl] = useState<string>(" ");
+  const [pesapalIframeUrl, setPesapalIframeUrl] = useState<string>("");
+
+  useEffect(() => {
+    if (initialBuyerId) setSelectedBuyerId(initialBuyerId);
+  }, [initialBuyerId]);
 
   async function handlePesapalCheckout() {
     setCheckoutState("PENDING");
@@ -223,6 +238,7 @@ export default function BuyersPanel({ buyers, listings, orders, onPlaceOrder }: 
           </div>
         </div>
 
+        {!embedded && (
         <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
           <span className="text-[10px] font-semibold text-slate-400 uppercase ml-2 mr-1">Switch Account:</span>
           {buyers.map(b => (
@@ -243,6 +259,7 @@ export default function BuyersPanel({ buyers, listings, orders, onPlaceOrder }: 
             </button>
           ))}
         </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
