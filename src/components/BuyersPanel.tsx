@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { motion } from "motion/react";
 import { 
   Search, 
   MapPin, 
@@ -6,14 +7,21 @@ import {
   ShoppingBag, 
   Trash2, 
   CreditCard,
-  CreditCard as MpesaIcon,
   CheckCircle,
   Clock,
   ExternalLink,
   ShieldCheck,
   AlertTriangle,
   ChevronRight,
-  Info
+  Info,
+  Sprout,
+  Filter,
+  Sparkles,
+  TrendingUp,
+  BrainCircuit,
+  Truck,
+  Activity,
+  Warehouse
 } from "lucide-react";
 import { Buyer, ProduceListing, Order, PaymentMethod, PaymentStatus, CargoStatus } from "../types";
 
@@ -86,13 +94,11 @@ export default function BuyersPanel({ buyers, listings, orders, onPlaceOrder }: 
         setPesapalIframeUrl(data.redirectUrl);
         setCheckoutState("PROMPTED");
         
-        // Listen to secure postMessage callback from the new checkout page
         const handleMessage = (event: MessageEvent) => {
           if (event.data && event.data.type === 'PESAPAL_PAYMENT_SUCCESS') {
             window.removeEventListener('message', handleMessage);
             setPesapalIframeUrl("");
             
-            // finalise order creation!
             const virtualReceipt = "PES" + Math.round(Math.random() * 800 + 100) + "X" + Math.random().toString(36).substr(2, 4).toUpperCase();
             setReceiptNumber(virtualReceipt);
             setCheckoutState("SUCCESS");
@@ -125,7 +131,6 @@ export default function BuyersPanel({ buyers, listings, orders, onPlaceOrder }: 
     }
   }
 
-
   // Trigger MPESA via Express API
   async function handleMpesaCheckout() {
     if (!phoneNumber) {
@@ -153,13 +158,11 @@ export default function BuyersPanel({ buyers, listings, orders, onPlaceOrder }: 
     }
   }
 
-  // Simulate Safaricom STK Push success callback
   function simulateSuccessCallback() {
     const virtualReceipt = "MPE" + Math.round(Math.random() * 800 + 100) + "S" + Math.random().toString(36).substr(2, 4).toUpperCase();
     setReceiptNumber(virtualReceipt);
     setCheckoutState("SUCCESS");
 
-    // final order submission
     const newOrder: Order = {
       id: "O-" + Math.round(Math.random() * 9000 + 1000),
       buyerId: selectedBuyerId,
@@ -197,416 +200,427 @@ export default function BuyersPanel({ buyers, listings, orders, onPlaceOrder }: 
   }
 
   return (
-    <div id="buyers-container" className="grid grid-cols-1 lg:grid-cols-12 gap-6 font-sans">
+    <div id="buyers-container" className="flex flex-col gap-6 font-sans">
       
-      {/* Buyers profile bar and marketplace filter */}
-      <div className="lg:col-span-12 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-        <div className="flex justify-between items-center flex-wrap gap-4">
+      {/* Top Header - Buyer Profile */}
+      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-center gap-4">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-agri-navy to-slate-800 flex items-center justify-center text-white font-bold text-lg shadow-inner">
+            {currentBuyer.companyName.charAt(0)}
+          </div>
           <div>
-            <span className="text-xs font-semibold text-sky-600 bg-sky-50 px-2.5 py-1 rounded-full uppercase tracking-wider">
-              Wholesale Market Portal
-            </span>
-            <h3 className="text-lg font-bold text-slate-800 mt-2 flex items-center gap-2">
-              {currentBuyer.companyName}
-              <span className="text-xs font-normal text-slate-400">({currentBuyer.name})</span>
-            </h3>
-            <p className="text-xs text-slate-500">
-              🏢 Main Depot: {currentBuyer.location.city} | Verification Status: 
-              <span className="text-emerald-600 font-semibold ml-1">✓ {currentBuyer.kycStatus}</span>
+            <div className="flex items-center gap-2">
+              <h3 className="text-xl font-display font-bold text-slate-900 leading-tight">
+                {currentBuyer.companyName}
+              </h3>
+              <span className="flex items-center gap-1 text-[10px] font-bold text-agri-emerald-dark bg-agri-emerald/10 border border-agri-emerald/20 px-2 py-0.5 rounded-md uppercase tracking-wide">
+                <ShieldCheck className="w-3 h-3" /> Verified Buyer
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-1 flex items-center gap-2">
+              <MapPin className="w-3 h-3" /> {currentBuyer.location.city} • Contact: {currentBuyer.name}
             </p>
           </div>
+        </div>
 
-          {/* Quick Select Buyer */}
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-slate-500">Log In Buyer ID:</span>
-            {buyers.map(b => (
-              <button
-                key={b.id}
-                onClick={() => {
-                  setSelectedBuyerId(b.id);
-                  setCart([]);
-                  setCheckoutState("IDLE");
-                }}
-                className={`px-3 py-1.5 rounded-lg border font-medium cursor-pointer ${
-                  selectedBuyerId === b.id 
-                    ? "bg-slate-800 text-white border-slate-800" 
-                    : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
-                }`}
-              >
-                {b.companyName.split(" ")[0]}
-              </button>
-            ))}
-          </div>
+        <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
+          <span className="text-[10px] font-semibold text-slate-400 uppercase ml-2 mr-1">Switch Account:</span>
+          {buyers.map(b => (
+            <button
+              key={b.id}
+              onClick={() => {
+                setSelectedBuyerId(b.id);
+                setCart([]);
+                setCheckoutState("IDLE");
+              }}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                selectedBuyerId === b.id 
+                  ? "bg-white text-agri-navy shadow-sm border border-slate-200" 
+                  : "text-slate-500 hover:text-slate-700 hover:bg-slate-100 border border-transparent"
+              }`}
+            >
+              {b.companyName.split(" ")[0]}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* LEFT COLUMN: Browse Market listings */}
-      <div className="lg:col-span-7 flex flex-col gap-5">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
         
-        {/* Market Filter Header */}
-        <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex flex-col sm:flex-row gap-3">
-          <div className="flex-1 relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-            <input
-              id="search-crop-input"
-              type="text"
-              placeholder="Search crop variety (e.g., Maize, Potatoes...)"
-              value={searchCrop}
-              onChange={(e) => setSearchCrop(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-200 outline-none focus:border-sky-500"
-            />
+        {/* LEFT COLUMN: Filters & AI Intel (3 cols) */}
+        <div className="xl:col-span-3 flex flex-col gap-6">
+          
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-4">
+            <h4 className="font-display font-bold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-3">
+              <Filter className="w-4 h-4 text-slate-400" /> Market Search
+            </h4>
+            
+            <div className="relative group">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 group-focus-within:text-agri-emerald transition-colors" />
+              <input
+                type="text"
+                placeholder="Search crops, grades..."
+                value={searchCrop}
+                onChange={(e) => setSearchCrop(e.target.value)}
+                className="w-full pl-9 pr-4 py-2.5 text-sm rounded-xl bg-slate-50 border border-slate-200 outline-none focus:border-agri-emerald focus:bg-white focus:ring-4 focus:ring-agri-emerald/10 transition-all font-medium"
+              />
+            </div>
+            
+            <div>
+              <label className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 block">County</label>
+              <select
+                value={filterCounty}
+                onChange={(e) => setFilterCounty(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm font-medium outline-none text-slate-700 focus:border-agri-emerald focus:bg-white focus:ring-4 focus:ring-agri-emerald/10 transition-all cursor-pointer"
+              >
+                <option value="All">All Regions</option>
+                <option value="Uasin Gishu">Uasin Gishu</option>
+                <option value="Nyandarua">Nyandarua</option>
+                <option value="Meru">Meru</option>
+              </select>
+            </div>
           </div>
 
-          <select
-            id="filter-county-select"
-            value={filterCounty}
-            onChange={(e) => setFilterCounty(e.target.value)}
-            className="rounded-lg border border-slate-200 p-2 text-sm outline-none bg-white text-slate-700 focus:border-sky-500"
-          >
-            <option value="All">All Counties</option>
-            <option value="Uasin Gishu">Uasin Gishu</option>
-            <option value="Nyandarua">Nyandarua</option>
-            <option value="Meru">Meru</option>
-          </select>
+          <div className="bg-gradient-to-br from-agri-navy to-agri-navy-light rounded-2xl p-6 border border-slate-800 shadow-lg relative overflow-hidden group">
+            <div className="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 bg-agri-emerald/10 rounded-full blur-2xl group-hover:bg-agri-emerald/20 transition-all duration-700"></div>
+            <div className="absolute bottom-0 left-0 -ml-8 -mb-8 w-32 h-32 bg-agri-cyan/10 rounded-full blur-2xl group-hover:bg-agri-cyan/20 transition-all duration-700"></div>
+            
+            <div className="flex items-center gap-2 mb-4 relative z-10">
+              <div className="w-2 h-2 rounded-full bg-agri-cyan animate-pulse"></div>
+              <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                <BrainCircuit className="w-4 h-4 text-agri-cyan" /> Mkulima Intel AI
+              </h4>
+            </div>
+            <div className="space-y-4 relative z-10">
+              <div className="bg-white/5 border border-white/10 rounded-xl p-3 backdrop-blur-sm">
+                <div className="text-[10px] text-agri-amber font-mono mb-1 uppercase">Market Alert</div>
+                <p className="text-xs text-slate-200 leading-relaxed font-medium">
+                  High maize demand in Nairobi (+12%). Expected supply constraints next week.
+                </p>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-xl p-3 backdrop-blur-sm">
+                <div className="text-[10px] text-agri-cyan font-mono mb-1 uppercase">Logistics Optimization</div>
+                <p className="text-xs text-slate-200 leading-relaxed font-medium">
+                  Consolidated transport available from Nyandarua to Nairobi. -15% freight cost.
+                </p>
+              </div>
+            </div>
+          </div>
+
         </div>
 
-        {/* Listings Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {filteredListings.length === 0 ? (
-            <div className="bg-slate-50 border border-dashed rounded-xl p-8 text-center col-span-2 text-slate-400 text-sm">
-              No matching agricultural crops listed in this county.
+        {/* CENTER COLUMN: Marketplace Listings (6 cols) */}
+        <div className="xl:col-span-6 flex flex-col gap-6">
+          <div className="flex justify-between items-end">
+            <div>
+              <h2 className="text-2xl font-display font-bold text-slate-900">Live Supply Chain</h2>
+              <p className="text-sm text-slate-500 mt-1">Verified agricultural produce ready for procurement</p>
             </div>
-          ) : (
-            filteredListings.map(item => {
-              // Extract dummy farmer names
-              const locationCounty = item.id === "L-601" ? "Uasin Gishu" : item.id === "L-602" ? "Nyandarua" : "Meru";
-              return (
-                <div key={item.id} className="bg-white rounded-2xl border border-slate-100 hover:border-sky-200 p-5 shadow-sm transition-all flex flex-col justify-between">
-                  <div>
-                    <div className="flex justify-between items-start">
-                      <h4 className="font-bold text-slate-800 text-base">{item.cropName}</h4>
-                      <span className="text-[10px] uppercase font-bold bg-sky-50 text-sky-700 px-2.5 py-1 rounded-full border border-sky-100">
-                        Grade {item.grade}
-                      </span>
-                    </div>
+            <div className="hidden sm:flex gap-2">
+              <div className="text-xs font-medium text-slate-600 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm flex items-center gap-2">
+                <Activity className="w-4 h-4 text-agri-emerald" /> {filteredListings.length} Active Batches
+              </div>
+            </div>
+          </div>
 
-                    <p className="text-xs text-slate-400 flex items-center gap-1 mt-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-slate-300" />
-                      {locationCounty} County
-                    </p>
-
-                    <p className="text-xs text-slate-600 mt-2 line-clamp-2 italic">
-                      "{item.description}"
-                    </p>
-
-                    {/* Quality factors metrics */}
-                    <div className="mt-3 grid grid-cols-2 gap-2 bg-slate-50 p-2 rounded-lg text-[10px] text-slate-500">
-                      <div>
-                        Moisture: <strong className="text-slate-700">{item.moistureContentPct}%</strong>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            {filteredListings.length === 0 ? (
+              <div className="sm:col-span-2 bg-white border border-dashed border-slate-300 rounded-2xl p-12 text-center flex flex-col items-center justify-center">
+                <Search className="w-8 h-8 text-slate-300 mb-3" />
+                <h4 className="text-slate-700 font-bold">No crops found</h4>
+                <p className="text-slate-400 text-sm mt-1">Try adjusting your filters or search query.</p>
+              </div>
+            ) : (
+              filteredListings.map(item => {
+                const locationMap: Record<string, string> = {
+                  "L-601": "Uasin Gishu",
+                  "L-602": "Nyandarua",
+                  "L-603": "Meru"
+                };
+                const locationCounty = locationMap[item.id] || "Kenya";
+                const inCart = cart.some(c => c.id === item.id);
+                const isGradeA = item.grade === "A";
+                
+                return (
+                  <motion.div 
+                    key={item.id} 
+                    whileHover={{ y: -4 }}
+                    className={`group bg-white rounded-2xl border transition-all duration-300 flex flex-col relative overflow-hidden ${inCart ? 'border-agri-emerald shadow-lg ring-1 ring-agri-emerald/20' : 'border-slate-200 shadow-sm hover:shadow-xl'}`}
+                  >
+                    {item.imageUrl && (
+                      <div className="h-44 w-full relative overflow-hidden bg-slate-100">
+                        <img src={item.imageUrl} alt={item.cropName} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-agri-navy/80 via-transparent to-transparent"></div>
+                        <div className="absolute top-3 right-3">
+                           <span className="text-[10px] text-white/90 font-bold backdrop-blur-md bg-black/40 px-2 py-1 rounded-full flex items-center gap-1 border border-white/10">
+                              <ShieldCheck className="w-3 h-3 text-agri-emerald" /> Verified
+                           </span>
+                        </div>
+                        <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
+                          <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded-md shadow-sm backdrop-blur-md ${isGradeA ? 'bg-amber-400/90 text-amber-950' : 'bg-white/90 text-slate-800'}`}>
+                            Grade {item.grade}
+                          </span>
+                          <span className="text-[10px] text-white/90 flex items-center gap-1 font-semibold backdrop-blur-sm bg-white/20 px-2.5 py-1 rounded-full border border-white/10">
+                            <MapPin className="w-3 h-3" /> {locationCounty}
+                          </span>
+                        </div>
                       </div>
-                      <div>
-                        Spoilage Risk: <strong className="text-slate-700">{item.spoilageRiskPct}%</strong>
+                    )}
+
+                    <div className="p-5 pb-4 flex-1 flex flex-col">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h4 className="font-display font-bold text-slate-900 text-lg leading-none mb-1.5">{item.cropName}</h4>
+                          <div className="text-[10px] text-slate-500 font-medium">
+                            Farmer: KYC Verified • Harvest: {new Date(item.harvestDate).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 mb-4 mt-auto">
+                        <div className="bg-slate-50 rounded-lg p-2.5 border border-slate-100">
+                          <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Moisture</div>
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 bg-slate-200 rounded-full h-1.5">
+                              <div className={`h-full rounded-full ${item.moistureContentPct <= 13.5 ? 'bg-agri-emerald' : 'bg-amber-500'}`} style={{ width: `${Math.min(item.moistureContentPct * 5, 100)}%` }}></div>
+                            </div>
+                            <span className="text-xs font-bold text-slate-700">{item.moistureContentPct}%</span>
+                          </div>
+                        </div>
+                        <div className="bg-slate-50 rounded-lg p-2.5 border border-slate-100">
+                          <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Spoilage Risk</div>
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 bg-slate-200 rounded-full h-1.5">
+                              <div className={`h-full rounded-full ${item.spoilageRiskPct > 15 ? 'bg-red-500' : 'bg-agri-cyan'}`} style={{ width: `${item.spoilageRiskPct}%` }}></div>
+                            </div>
+                            <span className="text-xs font-bold text-slate-700">{item.spoilageRiskPct}%</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-xs text-slate-500 mb-4 bg-blue-50/50 p-2 rounded-lg border border-blue-100/50">
+                         <Truck className="w-4 h-4 text-blue-500" /> Transporter availability: High
+                      </div>
+
+                      <div className="flex justify-between items-end mt-auto pt-4 border-t border-slate-100">
+                        <div>
+                          <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Price / Kg</div>
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-xs font-bold text-slate-400">KES</span>
+                            <strong className="text-xl font-display font-bold text-slate-900 tracking-tight">{item.pricePerKgKes.toLocaleString()}</strong>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => addToCart(item)}
+                          disabled={inCart}
+                          className={`relative px-5 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm ${
+                            inCart
+                              ? "bg-agri-emerald/10 text-agri-emerald border border-agri-emerald/20 cursor-not-allowed"
+                              : "bg-agri-navy hover:bg-slate-800 text-white hover:shadow-lg hover:-translate-y-0.5"
+                          }`}
+                        >
+                          {inCart ? "Added" : "Procure"}
+                        </button>
                       </div>
                     </div>
+                  </motion.div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN: Cart & Escrow (3 cols) */}
+        <div className="xl:col-span-3 flex flex-col gap-6">
+          
+          {/* Shopping Cart Card */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col gap-4 sticky top-[90px]">
+            <h4 className="font-display font-bold text-slate-900 flex items-center justify-between pb-3 border-b border-slate-100">
+              <span className="flex items-center gap-2">
+                <ShoppingBag className="w-5 h-5 text-agri-emerald" /> Escrow Cart
+              </span>
+              {cart.length > 0 && <span className="text-xs bg-agri-emerald/10 text-agri-emerald font-bold px-2.5 py-0.5 rounded-full">{cart.length} items</span>}
+            </h4>
+
+            {cart.length === 0 ? (
+              <div className="text-center py-10 flex flex-col items-center">
+                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4 border border-slate-100">
+                  <ShoppingBag className="w-6 h-6 text-slate-300" />
+                </div>
+                <p className="text-slate-500 text-sm">Your escrow cart is empty. Select listed batches to begin.</p>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-3 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
+                  {cart.map(item => (
+                    <div key={item.id} className="flex justify-between items-center p-3 rounded-xl border border-slate-200 bg-slate-50 group">
+                      <div className="flex-1">
+                        <h5 className="font-bold text-slate-900 text-sm">{item.cropName}</h5>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-slate-500 text-xs font-medium">{item.quantityKg.toLocaleString()} Kg</span>
+                          <span className="text-slate-300 text-[10px]">•</span>
+                          <span className="text-slate-500 text-xs font-medium">KES {item.pricePerKgKes}/Kg</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <strong className="text-slate-900 font-mono text-sm">{(item.quantityKg * item.pricePerKgKes).toLocaleString()}</strong>
+                        <button
+                          onClick={() => removeFromCart(item.id)}
+                          className="text-slate-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-white transition-colors border border-transparent hover:border-red-100"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="pt-4 border-t border-slate-100 space-y-3">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-slate-500 font-medium">Total Quantity</span>
+                    <strong className="text-slate-900">{totalKg.toLocaleString()} Kg</strong>
                   </div>
+                  <div className="flex justify-between items-end pt-2">
+                    <span className="text-slate-600 font-bold">Total Escrow</span>
+                    <strong className="text-agri-emerald text-2xl font-mono tracking-tight leading-none">KES {totalCost.toLocaleString()}</strong>
+                  </div>
+                </div>
 
-                  <div className="mt-5 pt-3 border-t border-slate-50 flex justify-between items-center">
-                    <div>
-                      <span className="text-[10px] text-slate-400 uppercase tracking-tight block">Target Price</span>
-                      <strong className="text-slate-800 text-base">KES {item.pricePerKgKes} <span className="text-xs font-normal text-slate-500">/Kg</span></strong>
-                      <span className="text-[10px] block text-sky-600 font-semibold mt-0.5">Vol: {item.quantityKg} Kg</span>
-                    </div>
-
+                <div className="mt-2 pt-4 border-t border-slate-100">
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Funding Source</label>
+                  <div className="grid grid-cols-2 gap-3">
                     <button
-                      id={`add-cart-btn-${item.id}`}
-                      onClick={() => addToCart(item)}
-                      disabled={cart.some(c => c.id === item.id)}
-                      className={`px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer ${
-                        cart.some(c => c.id === item.id)
-                          ? "bg-slate-100 text-slate-400"
-                          : "bg-sky-500 hover:bg-sky-600 text-white shadow-sm"
+                      type="button"
+                      onClick={() => setPaymentMethod(PaymentMethod.M_PESA)}
+                      className={`flex flex-col items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all ${
+                        paymentMethod === PaymentMethod.M_PESA
+                          ? "bg-agri-emerald/5 border-agri-emerald text-agri-emerald-dark shadow-sm"
+                          : "bg-white border-slate-200 text-slate-500 hover:border-slate-300"
                       }`}
                     >
-                      {cart.some(c => c.id === item.id) ? "In Cart" : "Buy Bulk Batch"}
+                      <Coins className="w-5 h-5" />
+                      <span className="text-xs font-bold">M-PESA</span>
                     </button>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
-
-      {/* RIGHT COLUMN: Cart and M-PESA invoice */}
-      <div className="lg:col-span-5 flex flex-col gap-5">
-        
-        {/* Shopping Cart Card */}
-        <div id="cart-card" className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h4 className="text-sm font-bold text-slate-800 tracking-tight uppercase flex items-center gap-2 pb-3 border-b border-slate-100 mb-4">
-            <ShoppingBag className="w-4 h-4 text-sky-500" />
-            Consolidated Produce Cart
-          </h4>
-
-          {cart.length === 0 ? (
-            <div className="text-center py-8 text-slate-400 text-xs">
-              Your procure cart is empty. Select listed batches to place supply orders.
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {cart.map(item => (
-                <div key={item.id} className="flex justify-between items-center p-3 rounded-xl bg-slate-50 border border-slate-150 text-xs">
-                  <div>
-                    <h5 className="font-bold text-slate-800">{item.cropName} (Grade {item.grade})</h5>
-                    <p className="text-slate-500 text-[10px] mt-0.5">{item.quantityKg} Kg @ KES {item.pricePerKgKes}/Kg</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <strong className="text-slate-800 font-mono">KES {(item.quantityKg * item.pricePerKgKes).toLocaleString()}</strong>
                     <button
-                      id={`remove-cart-${item.id}`}
-                      onClick={() => removeFromCart(item.id)}
-                      className="text-red-400 hover:text-red-600 cursor-pointer"
+                      type="button"
+                      onClick={() => setPaymentMethod(PaymentMethod.PESAPAL)}
+                      className={`flex flex-col items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all ${
+                        paymentMethod === PaymentMethod.PESAPAL
+                          ? "bg-blue-50 border-blue-500 text-blue-700 shadow-sm"
+                          : "bg-white border-slate-200 text-slate-500 hover:border-slate-300"
+                      }`}
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <CreditCard className="w-5 h-5" />
+                      <span className="text-xs font-bold">PesaPal</span>
                     </button>
                   </div>
-                </div>
-              ))}
 
-              {/* Math summaries */}
-              <div className="pt-4 mt-2 border-t border-slate-100 space-y-2 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-slate-500">Total Quantity:</span>
-                  <strong className="text-slate-800">{totalKg.toLocaleString()} Kg</strong>
-                </div>
-                <div className="flex justify-between items-center pt-2 border-t border-slate-100">
-                  <span className="text-slate-600 font-semibold">Total Order Cost:</span>
-                  <strong className="text-slate-900 text-lg font-mono">KES {totalCost.toLocaleString()}</strong>
-                </div>
-              </div>
-
-              {/* Payment Selectors */}
-              <div className="mt-4 pt-4 border-t border-slate-100">
-                <label className="block text-[10px] font-semibold text-slate-400 uppercase mb-2">Billing Method</label>
-                <div className="grid grid-cols-3 gap-1.5 text-xs">
-                  <button
-                    id="mpesa-btn"
-                    type="button"
-                    onClick={() => setPaymentMethod(PaymentMethod.M_PESA)}
-                    className={`flex items-center justify-center gap-1 px-2 py-2 rounded-lg border font-medium cursor-pointer transition-all ${
-                      paymentMethod === PaymentMethod.M_PESA
-                        ? "bg-emerald-50 text-emerald-700 border-emerald-300"
-                        : "bg-white text-slate-600 border-slate-200"
-                    }`}
-                  >
-                    <Coins className="w-3.5 h-3.5" />
-                    M-PESA
-                  </button>
-                  <button
-                    id="pesapal-btn"
-                    type="button"
-                    onClick={() => setPaymentMethod(PaymentMethod.PESAPAL)}
-                    className={`flex items-center justify-center gap-1 px-2 py-2 rounded-lg border font-medium cursor-pointer transition-all ${
-                      paymentMethod === PaymentMethod.PESAPAL
-                        ? "bg-amber-50 text-amber-700 border-amber-300"
-                        : "bg-white text-slate-600 border-slate-200"
-                    }`}
-                  >
-                    <CreditCard className="w-3.5 h-3.5" />
-                    PesaPal
-                  </button>
-                  <button
-                    id="cod-btn"
-                    type="button"
-                    onClick={() => setPaymentMethod(PaymentMethod.CASH_ON_DELIVERY)}
-                    className={`flex items-center justify-center gap-1 px-2 py-2 rounded-lg border font-medium cursor-pointer transition-all ${
-                      paymentMethod === PaymentMethod.CASH_ON_DELIVERY
-                        ? "bg-slate-50 text-slate-800 border-slate-300 font-semibold"
-                        : "bg-white text-slate-600 border-slate-200"
-                    }`}
-                  >
-                    <ShoppingBag className="w-3.5 h-3.5" />
-                    COD
-                  </button>
-                </div>
-
-                {paymentMethod === PaymentMethod.M_PESA && (
-                  <div className="mt-3">
-                    <label className="block text-[9.5px] font-bold text-slate-500 uppercase">M-PESA Phone (+254)</label>
-                    <input
-                      id="phone-mpesa-val"
-                      type="text"
-                      placeholder="e.g. 0711223344"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      className="mt-1 block w-full rounded-lg border border-slate-200 p-2 text-xs font-mono"
-                    />
-                  </div>
-                )}
-
-                <button
-                  id="checkout-btn"
-                  onClick={
-                    paymentMethod === PaymentMethod.M_PESA 
-                      ? handleMpesaCheckout 
-                      : paymentMethod === PaymentMethod.PESAPAL
-                        ? handlePesapalCheckout
-                        : handleGenericCheckout
-                  }
-                  className="mt-4 w-full bg-slate-800 hover:bg-slate-900 text-white font-semibold py-2.5 rounded-xl text-xs transition-all tracking-wide select-none cursor-pointer"
-                >
-                  {paymentMethod === PaymentMethod.M_PESA 
-                    ? "Trigger M-PESA STK Push Invoice" 
-                    : paymentMethod === PaymentMethod.PESAPAL
-                      ? "Initiate Secure PesaPal Checkout"
-                      : "Fulfill Cash Order"
-                  }
-                </button>
-
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* MPESA Dynamic STK Simulator Visual Frame */}
-        {checkoutState !== "IDLE" && (
-          <div id="mpesa-simulation-frame" className="bg-slate-900 border border-slate-850 rounded-2xl p-5 text-white shadow-xl flex flex-col gap-4 animate-fadeIn">
-            <div className="flex justify-between items-start">
-              <div className="flex items-center gap-2">
-                <span className="w-3.5 h-3.5 rounded-full bg-emerald-500 animate-pulse" />
-                <h5 className="font-bold text-xs text-slate-100 uppercase tracking-wide">M-PESA Checkout Sandbox</h5>
-              </div>
-              <span className="text-[9px] bg-emerald-500/10 text-emerald-400 font-mono px-2 py-0.5 rounded">Daraja v2.0 API</span>
-            </div>
-
-            {checkoutState === "PENDING" && (
-              <p className="text-xs text-slate-400 animate-pulse">
-                {paymentMethod === PaymentMethod.PESAPAL 
-                  ? "Configuring secure token and invoking PesaPal gateway..." 
-                  : "Contacting Safaricom API Gateway on Port 3000..."
-                }
-              </p>
-            )}
-
-            {paymentMethod === PaymentMethod.PESAPAL && checkoutState === "PROMPTED" && pesapalIframeUrl && (
-              <div className="space-y-4">
-                <div className="p-3 bg-amber-500/10 text-amber-500 rounded-xl border border-amber-500/25 flex items-start gap-2.5 text-xs">
-                  <Info className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-500" />
-                  <div>
-                    <span className="font-bold text-amber-400">Secure PesaPal Gateway Redirect Active</span>
-                    <p className="mt-0.5 text-slate-300 leading-normal">PesaPal secures transactions using central bank authorized sandbox clearances. Ensure you approve Safaricom M-Pesa pin prompts on launch.</p>
-                  </div>
-                </div>
-
-                <div className="flex flex-col gap-3">
-                  <button
-                    onClick={() => {
-                      window.open(pesapalIframeUrl, "PesaPalSecureCheckout", "width=520,height=700,status=yes,scrollbars=yes");
-                    }}
-                    className="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-3 text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-amber-500/15"
-                  >
-                    <ExternalLink className="w-4 h-4 text-slate-950" />
-                    Launch Secure PesaPal Checkout Page
-                  </button>
-
-                  <p className="text-[10px] text-slate-400 text-center animate-pulse">
-                    ⏳ Listening dynamically on local server webhook callback for payment completion updates...
-                  </p>
-                </div>
-              </div>
-            )}
-
-
-            {checkoutState === "PROMPTED" && mpesaDetails && (
-              <div className="space-y-3">
-                <p className="text-xs text-slate-300">
-                  ⚡ STK Push request successfully received by server router. Callback token created.
-                </p>
-
-                <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 font-mono text-[11px] text-slate-300 space-y-1">
-                  <div>Ref Checkout: <span className="text-amber-400">{mpesaDetails.checkoutRequestID}</span></div>
-                  <div>Phone Target: <span className="text-slate-100">{phoneNumber}</span></div>
-                  <div>Amount Bill: <span className="text-emerald-400">KES {totalCost.toLocaleString()}</span></div>
-                </div>
-
-                <div className="p-3 bg-slate-850/50 rounded-xl flex flex-col gap-2 border border-slate-800">
-                  <label className="text-[10px] text-slate-400 uppercase">Input Virtual M-PESA PIN</label>
-                  <div className="flex gap-2">
-                    <input
-                      id="mpesa-pin-val"
-                      type="password"
-                      maxLength={4}
-                      placeholder="••••"
-                      value={mpesaPin}
-                      onChange={(e) => setMpesaPin(e.target.value)}
-                      className="bg-slate-950 border border-slate-700 rounded p-1.5 w-16 text-center text-sm font-bold tracking-widest text-white outline-none focus:border-emerald-500"
-                    />
-                    <button
-                      id="callback-success-btn"
-                      onClick={simulateSuccessCallback}
-                      disabled={mpesaPin.length < 4}
-                      className="flex-1 bg-emerald-500 disabled:bg-slate-700 text-white rounded font-semibold text-xs py-1.5 hover:bg-emerald-600 transition-all cursor-pointer"
-                    >
-                      Authenticate Pay Callback
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {checkoutState === "SUCCESS" && (
-              <div className="space-y-2 text-center py-2 flex flex-col items-center">
-                <CheckCircle className="w-8 h-8 text-emerald-500" />
-                <h6 className="text-sm font-bold text-white">Payment Verified successfully</h6>
-                <p className="text-[11px] text-slate-400">
-                  Daraja Transaction Receipt: <strong className="text-emerald-400 font-mono">{receiptNumber || "MPER8912A0"}</strong>
-                </p>
-                <p className="text-[10px] text-slate-500">
-                  Fulfillment Ledger updated. The logistics coordinator will pack and route cargo to your designated depots.
-                </p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Historic Orders */}
-        <div id="buyer-orders-card" className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
-          <h4 className="text-xs font-bold text-slate-800 tracking-tight uppercase border-b border-slate-100 pb-2 mb-3">
-            Your Supplier Invoices ({orders.length})
-          </h4>
-
-          <div className="space-y-3">
-            {orders.map(o => (
-              <div key={o.id} className="p-3.5 rounded-xl border border-slate-100 bg-slate-50 text-xs flex justify-between items-center">
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <strong className="text-slate-800">{o.id}</strong>
-                    <span className="text-slate-400">•</span>
-                    <span className="text-[10px] bg-sky-50 text-sky-700 px-2 py-0.5 rounded font-bold">{o.status}</span>
-                  </div>
-                  <p className="text-[10px] text-slate-500 mt-1">
-                    Qty: {o.totalQuantityKg.toLocaleString()} Kg • Total: KES {o.totalCostKes.toLocaleString()}
-                  </p>
-                  <p className="text-[9px] text-slate-400 mt-1 truncate max-w-[180px]">
-                    📍 {o.deliveryAddress}
-                  </p>
-                </div>
-
-                <div className="text-right">
-                  <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase block ${
-                    o.paymentStatus === PaymentStatus.COMPLETED 
-                      ? "bg-emerald-50 text-emerald-700 border border-emerald-150" 
-                      : "bg-amber-50 text-amber-700 border border-amber-150 animate-pulse"
-                  }`}>
-                    {o.paymentStatus}
-                  </span>
-                  {o.mpesaReceipt && (
-                    <span className="text-[9px] text-emerald-600 block font-mono mt-1">Receipt: {o.mpesaReceipt}</span>
+                  {paymentMethod === PaymentMethod.M_PESA && (
+                    <div className="mt-4">
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Safaricom Number</label>
+                      <input
+                        type="text"
+                        value={phoneNumber}
+                        onChange={(e) => setPhoneNumber(e.target.value)}
+                        className="w-full rounded-xl bg-slate-50 border border-slate-200 p-3 text-sm font-mono font-medium outline-none focus:border-agri-emerald focus:ring-2 focus:ring-agri-emerald/20 transition-all"
+                      />
+                    </div>
                   )}
+
+                  <button
+                    onClick={paymentMethod === PaymentMethod.M_PESA ? handleMpesaCheckout : handlePesapalCheckout}
+                    className="mt-6 w-full bg-agri-emerald hover:bg-agri-emerald-dark text-white font-bold py-3.5 rounded-xl text-sm transition-all shadow-lg hover:shadow-xl hover:-translate-y-0.5 flex items-center justify-center gap-2"
+                  >
+                    <ShieldCheck className="w-5 h-5" /> Lock Funds in Escrow
+                  </button>
                 </div>
-              </div>
-            ))}
+              </>
+            )}
           </div>
+
+          {/* Checkout Simulator Modal/Overlay */}
+          {checkoutState !== "IDLE" && (
+            <div className="bg-agri-navy border border-slate-800 rounded-2xl p-5 text-white shadow-2xl flex flex-col gap-4 animate-in slide-in-from-bottom-4 duration-300">
+               <div className="flex justify-between items-center mb-2">
+                 <div className="flex items-center gap-2">
+                   <div className="w-2.5 h-2.5 rounded-full bg-agri-emerald animate-pulse"></div>
+                   <div className="font-bold text-sm">Transaction Simulator</div>
+                 </div>
+                 <div className="text-[10px] uppercase font-bold text-agri-cyan border border-agri-cyan/30 px-2 py-0.5 rounded bg-agri-cyan/10">Sandbox</div>
+               </div>
+               
+               {checkoutState === "PENDING" && <div className="text-sm text-slate-400 animate-pulse text-center py-4">Initializing Secure Gateway...</div>}
+               {checkoutState === "SUCCESS" && (
+                 <div className="text-center py-6">
+                    <CheckCircle className="w-12 h-12 text-agri-emerald mx-auto mb-3" />
+                    <div className="font-bold text-lg mb-1">Escrow Secured</div>
+                    <div className="text-xs text-slate-400">Receipt: <span className="text-agri-emerald font-mono">{receiptNumber}</span></div>
+                 </div>
+               )}
+               {checkoutState === "PROMPTED" && mpesaDetails && (
+                 <div className="space-y-4">
+                    <div className="bg-slate-800 p-3 rounded-lg text-xs font-mono">
+                      <div>Amount: KES {totalCost}</div>
+                      <div>Target: {phoneNumber}</div>
+                    </div>
+                    <div className="flex gap-2">
+                      <input 
+                        type="password" 
+                        maxLength={4} 
+                        placeholder="PIN" 
+                        value={mpesaPin} 
+                        onChange={e => setMpesaPin(e.target.value)} 
+                        className="bg-slate-900 border border-slate-700 rounded-lg p-2 w-20 text-center focus:border-agri-emerald outline-none" 
+                      />
+                      <button 
+                        onClick={simulateSuccessCallback} 
+                        className="flex-1 bg-agri-emerald text-agri-navy font-bold rounded-lg hover:bg-agri-emerald-dark"
+                      >
+                        Approve
+                      </button>
+                    </div>
+                 </div>
+               )}
+            </div>
+          )}
+
+          {/* Active Fleet / Logistics Widget */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+             <h4 className="font-display font-bold text-slate-900 flex items-center gap-2 border-b border-slate-100 pb-3 mb-4">
+               <Truck className="w-5 h-5 text-blue-500" /> Logistics Activity
+             </h4>
+             <div className="space-y-4">
+                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-xl border border-blue-100">
+                   <div className="flex gap-3 items-center">
+                     <div className="w-8 h-8 rounded-full bg-blue-200/50 flex items-center justify-center"><Truck className="w-4 h-4 text-blue-700"/></div>
+                     <div>
+                       <div className="text-xs font-bold text-slate-900">Truck KCD-200X</div>
+                       <div className="text-[10px] text-slate-500">Nyandarua → Nairobi</div>
+                     </div>
+                   </div>
+                   <div className="text-right">
+                     <div className="text-xs font-bold text-blue-700">En route</div>
+                     <div className="text-[10px] text-slate-500">ETA: 4 hrs</div>
+                   </div>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                   <div className="flex gap-3 items-center">
+                     <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center"><Warehouse className="w-4 h-4 text-slate-600"/></div>
+                     <div>
+                       <div className="text-xs font-bold text-slate-900">Meru Hub</div>
+                       <div className="text-[10px] text-slate-500">Capacity: 85%</div>
+                     </div>
+                   </div>
+                   <div className="text-right">
+                     <div className="text-xs font-bold text-slate-700">Accepting</div>
+                     <div className="text-[10px] text-agri-emerald">Optimal Temp</div>
+                   </div>
+                </div>
+             </div>
+          </div>
+
         </div>
+
       </div>
     </div>
   );

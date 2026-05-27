@@ -95,6 +95,7 @@ export interface ProduceListing {
   moistureContentPct: number;
   description: string;
   spoilageRiskPct: number;
+  imageUrl?: string;
   isOfflineCreated?: boolean;
   syncStatus?: "PENDING" | "SYNCED";
   timestamp: string;
