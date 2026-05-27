@@ -11,9 +11,9 @@ import { registerPesapalRoutes } from "./server/routes/pesapalRoutes";
 
 // FIX: Import helpers that were called but never imported.
 // These must be exported from their respective modules.
-import { registerNewUser, findUserByEmail, listAllRegisteredUsers } from "./server/services/authService";
-import { initiatePayment } from "./server/services/pesapalService";
-import { sendSMS, makeVoiceCall } from "./server/services/africastalkingService";
+import { registerNewUser, findUserByEmail, listAllRegisteredUsers } from "./server/db";
+import { initiatePayment } from "./server/pesapal";
+import { sendSMS, makeVoiceCall } from "./server/africastalking";
 
 // Load environment variables
 dotenv.config();
