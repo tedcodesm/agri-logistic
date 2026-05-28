@@ -89,13 +89,25 @@ export interface ProduceListing {
   farmerId: string;
   cropName: string;
   quantityKg: number;
+  quantityUnit?: "kg" | "tonnes";
   pricePerKgKes: number;
+  priceUnit?: "kg" | "tonne";
   harvestDate: string;
   grade: ProduceGrade;
+  category?: string;
+  county?: string;
+  storageType?: string;
+  availabilityStatus?: "AVAILABLE" | "LIMITED" | "OUT_OF_STOCK";
+  deliveryAvailable?: boolean;
+  transportNeeded?: boolean;
+  warehouseStatus?: "NOT_STORED" | "WAREHOUSE_PENDING" | "WAREHOUSE_VERIFIED";
+  trustScore?: number;
+  estimatedDeliveryEtaHours?: number;
   moistureContentPct: number;
   description: string;
   spoilageRiskPct: number;
   imageUrl?: string;
+  imageUrls?: string[];
   isOfflineCreated?: boolean;
   syncStatus?: "PENDING" | "SYNCED";
   timestamp: string;
@@ -149,6 +161,20 @@ export interface Order {
   mpesaReceipt?: string;
   status: CargoStatus;
   deliveryAddress: string;
+  createdAt: string;
+}
+
+export interface LogisticsRequest {
+  id: string;
+  orderId: string;
+  listingId: string;
+  buyerId: string;
+  farmerId: string;
+  countyFrom: string;
+  countyTo: string;
+  transportCostKes: number;
+  routeEtaHours: number;
+  status: "REQUESTED" | "ASSIGNED" | "IN_TRANSIT" | "DELIVERED";
   createdAt: string;
 }
 

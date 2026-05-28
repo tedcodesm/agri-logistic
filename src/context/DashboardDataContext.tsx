@@ -21,6 +21,7 @@ import {
   SEED_LISTINGS,
   SEED_ORDERS,
 } from "../data";
+import { authFetch } from "../lib/authFetch";
 
 const EMAIL_ENTITY_MAP: Record<string, { farmerId?: string; buyerId?: string; driverId?: string }> = {
   "farmer@agrilogistics.ke": { farmerId: "F-103" },
@@ -72,6 +73,26 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
   const [orders, setOrders] = useState<Order[]>(SEED_ORDERS);
   const [activeTrips, setActiveTrips] = useState<DeliveryTrip[]>([]);
 
+  React.useEffect(() => {
+    authFetch("/api/products")
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d.products) && d.products.length) {
+          setListings(d.products as ProduceListing[]);
+        }
+      })
+      .catch(() => undefined);
+  }, []);
+
+  React.useEffect(() => {
+    authFetch("/api/orders")
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d) => {
+        if (Array.isArray(d.orders)) setOrders(d.orders as Order[]);
+      })
+      .catch(() => undefined);
+  }, []);
+
   const currentFarmerId = mapped.farmerId ?? farmers[0].id;
   const currentBuyerId = mapped.buyerId ?? buyers[0].id;
   const currentDriverId = mapped.driverId ?? drivers[0].id;
@@ -102,6 +123,11 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
 
   const addListing = useCallback((listing: ProduceListing) => {
     setListings((prev) => [listing, ...prev]);
+    authFetch("/api/products", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(listing),
+    }).catch(() => undefined);
   }, []);
 
   const syncListings = useCallback((local: ProduceListing[]) => {
@@ -133,6 +159,12 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
           }),
         }).catch(() => undefined);
       }
+
+      authFetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newOrder),
+      }).catch(() => undefined);
     },
     [buyers]
   );

@@ -64,7 +64,7 @@ export default function BuyersPanel({
   // Filtering listings
   const filteredListings = listings.filter(item => {
     const matchesCrop = item.cropName.toLowerCase().includes(searchCrop.toLowerCase());
-    const matchesCounty = filterCounty === "All" || (item.id === "L-601" && filterCounty === "Uasin Gishu") || (item.id === "L-602" && filterCounty === "Nyandarua") || (item.id === "L-603" && filterCounty === "Meru");
+    const matchesCounty = filterCounty === "All" || item.county === filterCounty;
     return matchesCrop && matchesCounty;
   });
 
@@ -349,12 +349,7 @@ export default function BuyersPanel({
               </div>
             ) : (
               filteredListings.map(item => {
-                const locationMap: Record<string, string> = {
-                  "L-601": "Uasin Gishu",
-                  "L-602": "Nyandarua",
-                  "L-603": "Meru"
-                };
-                const locationCounty = locationMap[item.id] || "Kenya";
+                const locationCounty = item.county || "Kenya";
                 const inCart = cart.some(c => c.id === item.id);
                 const isGradeA = item.grade === "A";
                 
@@ -415,8 +410,23 @@ export default function BuyersPanel({
                         </div>
                       </div>
 
+                      <div className="grid grid-cols-2 gap-2 text-[10px] mb-4">
+                        <span className="px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-700 font-semibold">
+                          Trust Score: {item.trustScore ?? 92}%
+                        </span>
+                        <span className="px-2 py-1 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-700 font-semibold">
+                          Warehouse: {item.warehouseStatus?.replaceAll("_", " ") || "Pending"}
+                        </span>
+                        <span className="px-2 py-1 rounded-lg bg-cyan-50 border border-cyan-100 text-cyan-700 font-semibold">
+                          ETA: {item.estimatedDeliveryEtaHours ?? 6}h
+                        </span>
+                        <span className={`px-2 py-1 rounded-lg border font-semibold ${item.deliveryAvailable ? "bg-blue-50 border-blue-100 text-blue-700" : "bg-slate-100 border-slate-200 text-slate-600"}`}>
+                          {item.deliveryAvailable ? "Delivery available" : "Pickup only"}
+                        </span>
+                      </div>
+
                       <div className="flex items-center gap-2 text-xs text-slate-500 mb-4 bg-blue-50/50 p-2 rounded-lg border border-blue-100/50">
-                         <Truck className="w-4 h-4 text-blue-500" /> Transporter availability: High
+                         <Truck className="w-4 h-4 text-blue-500" /> {item.transportNeeded ? "Transport request needed" : "Transporter availability: High"}
                       </div>
 
                       <div className="flex justify-between items-end mt-auto pt-4 border-t border-slate-100">

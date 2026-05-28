@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { motion } from "motion/react";
 import {
   AreaChart,
   Area,
@@ -19,6 +20,10 @@ import {
   Plus,
   Droplets,
   TrendingUp,
+  UploadCloud,
+  ImagePlus,
+  Truck,
+  Sparkles,
 } from "lucide-react";
 import { useDashboardData } from "../../context/DashboardDataContext";
 import { useAuth } from "../../context/AuthContext";
@@ -147,11 +152,68 @@ export function FarmerOverview() {
 
 export function FarmerProduce() {
   const { myListings, currentFarmerId, currentFarmer, addListing } = useDashboardData();
-  const [cropName, setCropName] = useState("Potatoes");
-  const [quantityKg, setQuantityKg] = useState(500);
-  const [pricePerKg, setPricePerKg] = useState(42);
+  const [cropName, setCropName] = useState("Maize");
+  const [category, setCategory] = useState("Grains");
+  const [description, setDescription] = useState("");
+  const [quantity, setQuantity] = useState(500);
+  const [quantityUnit, setQuantityUnit] = useState<"kg" | "tonnes">("kg");
+  const [price, setPrice] = useState(42);
+  const [priceUnit, setPriceUnit] = useState<"kg" | "tonne">("kg");
+  const [county, setCounty] = useState(currentFarmer.location.county);
+  const [harvestDate, setHarvestDate] = useState(new Date().toISOString().slice(0, 10));
+  const [availabilityStatus, setAvailabilityStatus] = useState<"AVAILABLE" | "LIMITED" | "OUT_OF_STOCK">("AVAILABLE");
+  const [deliveryAvailable, setDeliveryAvailable] = useState(true);
+  const [transportNeeded, setTransportNeeded] = useState(false);
   const [moisture, setMoisture] = useState(13.2);
+  const [images, setImages] = useState<{ id: string; url: string; progress: number }[]>([]);
+  const [aiTip, setAiTip] = useState<string>("");
   const [showForm, setShowForm] = useState(false);
+
+  const quantityKg = quantityUnit === "tonnes" ? quantity * 1000 : quantity;
+  const pricePerKg = priceUnit === "tonne" ? price / 1000 : price;
+
+  useEffect(() => {
+    if (!showForm) return;
+    const t = setTimeout(() => {
+      fetch("/api/predict-price", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cropName, county, grade: "A" }),
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          const demand =
+            data?.regionalAnomalies?.[0]?.location
+              ? `Current ${cropName.toLowerCase()} demand is high near ${data.regionalAnomalies[0].location}.`
+              : "";
+          const moistureNote =
+            moisture > (data?.maxMoistureAllowedPct || 13.5)
+              ? `Moisture ${moisture}% is above safe threshold.`
+              : `Moisture ${moisture}% is within safe storage range.`;
+          setAiTip(`${demand} ${moistureNote} Recommended price: KES ${data?.predictedPricePerKg || pricePerKg}/kg.`);
+        })
+        .catch(() => setAiTip("Mkulima Intel: list Grade A stock this week for stronger Nairobi margins."));
+    }, 250);
+    return () => clearTimeout(t);
+  }, [showForm, cropName, county, moisture, pricePerKg]);
+
+  function handleFileSelect(fileList: FileList | null) {
+    if (!fileList?.length) return;
+    const next = Array.from(fileList).slice(0, 6).map((file, idx) => {
+      const id = `${Date.now()}-${idx}`;
+      return {
+        id,
+        url: URL.createObjectURL(file),
+        progress: 20,
+      };
+    });
+    setImages((prev) => [...prev, ...next]);
+    next.forEach((n, i) => {
+      setTimeout(() => {
+        setImages((prev) => prev.map((p) => (p.id === n.id ? { ...p, progress: 100 } : p)));
+      }, 500 + i * 180);
+    });
+  }
 
   function handleAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -159,19 +221,30 @@ export function FarmerProduce() {
       id: `L-${Date.now()}`,
       farmerId: currentFarmerId,
       cropName,
-      quantityKg,
+      quantityKg: Math.max(0, quantityKg),
+      quantityUnit,
       pricePerKgKes: pricePerKg,
-      harvestDate: new Date().toISOString().split("T")[0],
+      priceUnit,
+      category,
+      county,
+      harvestDate,
+      availabilityStatus,
+      deliveryAvailable,
+      transportNeeded,
       grade: ProduceGrade.GRADE_A,
       moistureContentPct: moisture,
-      description: `Fresh ${cropName} from ${currentFarmer.location.county}`,
+      description: description || `Fresh ${cropName} from ${county}`,
       spoilageRiskPct: moisture > 14 ? 18 : 6,
-      imageUrl: `https://images.unsplash.com/photo-1518977824744-7797548211cc?w=400&auto=format&fit=crop`,
+      imageUrl: images[0]?.url || `https://images.unsplash.com/photo-1518977824744-7797548211cc?w=400&auto=format&fit=crop`,
+      imageUrls: images.map((img) => img.url),
+      estimatedDeliveryEtaHours: deliveryAvailable ? 6 : 0,
+      trustScore: 96,
       timestamp: new Date().toISOString(),
       syncStatus: "SYNCED",
     };
     addListing(listing);
     setShowForm(false);
+    setImages([]);
   }
 
   return (
@@ -184,13 +257,72 @@ export function FarmerProduce() {
       {showForm && (
         <DashboardCard title="New crop listing" className="mb-6">
           <form onSubmit={handleAdd} className="grid sm:grid-cols-2 gap-4">
-            <input className="border rounded-xl px-3 py-2 text-sm" placeholder="Crop name" value={cropName} onChange={(e) => setCropName(e.target.value)} />
-            <input type="number" className="border rounded-xl px-3 py-2 text-sm" placeholder="Quantity (kg)" value={quantityKg} onChange={(e) => setQuantityKg(+e.target.value)} />
-            <input type="number" className="border rounded-xl px-3 py-2 text-sm" placeholder="Price KES/kg" value={pricePerKg} onChange={(e) => setPricePerKg(+e.target.value)} />
+            <input className="border rounded-xl px-3 py-2 text-sm" placeholder="Crop/Product name" value={cropName} onChange={(e) => setCropName(e.target.value)} />
+            <select className="border rounded-xl px-3 py-2 text-sm" value={category} onChange={(e) => setCategory(e.target.value)}>
+              <option>Grains</option><option>Tubers</option><option>Vegetables</option><option>Fruits</option>
+            </select>
+            <div className="flex gap-2">
+              <input type="number" className="border rounded-xl px-3 py-2 text-sm flex-1" placeholder="Quantity" value={quantity} onChange={(e) => setQuantity(+e.target.value)} />
+              <select className="border rounded-xl px-3 py-2 text-sm" value={quantityUnit} onChange={(e) => setQuantityUnit(e.target.value as "kg" | "tonnes")}><option value="kg">kg</option><option value="tonnes">tonnes</option></select>
+            </div>
+            <div className="flex gap-2">
+              <div className="flex-1 border rounded-xl overflow-hidden flex bg-white">
+                <span className="px-3 py-2 text-sm font-bold text-emerald-700 bg-emerald-50 border-r border-slate-200">
+                  KSh
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  className="px-3 py-2 text-sm flex-1 outline-none"
+                  placeholder="Enter price in Kenyan shillings"
+                  value={price}
+                  onChange={(e) => setPrice(+e.target.value)}
+                />
+              </div>
+              <select className="border rounded-xl px-3 py-2 text-sm" value={priceUnit} onChange={(e) => setPriceUnit(e.target.value as "kg" | "tonne")}><option value="kg">per kg</option><option value="tonne">per tonne</option></select>
+            </div>
+            <input className="border rounded-xl px-3 py-2 text-sm" placeholder="County/location" value={county} onChange={(e) => setCounty(e.target.value)} />
+            <input type="date" className="border rounded-xl px-3 py-2 text-sm" value={harvestDate} onChange={(e) => setHarvestDate(e.target.value)} />
             <input type="number" step="0.1" className="border rounded-xl px-3 py-2 text-sm" placeholder="Moisture %" value={moisture} onChange={(e) => setMoisture(+e.target.value)} />
-            <p className="sm:col-span-2 text-xs text-slate-500">Location: {currentFarmer.location.county}, {currentFarmer.location.subCounty}</p>
+            <select className="border rounded-xl px-3 py-2 text-sm" value={availabilityStatus} onChange={(e) => setAvailabilityStatus(e.target.value as any)}>
+              <option value="AVAILABLE">Available</option><option value="LIMITED">Limited</option><option value="OUT_OF_STOCK">Out of stock</option>
+            </select>
+            <textarea className="sm:col-span-2 border rounded-xl px-3 py-2 text-sm min-h-20" placeholder="Short crop description" value={description} onChange={(e) => setDescription(e.target.value)} />
+            <div className="sm:col-span-2 border-2 border-dashed border-slate-300 rounded-2xl p-4 bg-slate-50">
+              <label className="cursor-pointer flex items-center gap-2 text-sm font-semibold text-slate-700">
+                <UploadCloud className="w-4 h-4 text-agri-emerald" /> Drag & drop crop images or click to upload
+                <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleFileSelect(e.target.files)} />
+              </label>
+              {images.length > 0 && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+                  {images.map((img) => (
+                    <div key={img.id} className="rounded-xl overflow-hidden border border-slate-200 bg-white">
+                      <div className="h-20 bg-cover bg-center" style={{ backgroundImage: `url(${img.url})` }} />
+                      <div className="p-2">
+                        <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                          <motion.div initial={{ width: 0 }} animate={{ width: `${img.progress}%` }} className="h-full bg-agri-emerald" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="sm:col-span-2 flex flex-wrap gap-3 text-sm">
+              <label className="inline-flex items-center gap-2"><input type="checkbox" checked={deliveryAvailable} onChange={(e) => setDeliveryAvailable(e.target.checked)} /> Delivery available</label>
+              <label className="inline-flex items-center gap-2"><input type="checkbox" checked={transportNeeded} onChange={(e) => setTransportNeeded(e.target.checked)} /> Transport request needed</label>
+            </div>
+            <div className="sm:col-span-2 rounded-xl border border-emerald-200 bg-emerald-50/50 p-3 text-sm text-emerald-900">
+              <p className="font-semibold flex items-center gap-2"><Sparkles className="w-4 h-4" /> Mkulima Intel Suggestion</p>
+              <p className="mt-1">{aiTip || "Analyzing demand, moisture safety, and price recommendations..."}</p>
+            </div>
             <div className="sm:col-span-2 flex gap-2">
-              <CtaButton>List produce</CtaButton>
+              <button
+                type="submit"
+                className="px-5 py-2.5 rounded-xl bg-agri-emerald hover:bg-agri-emerald-dark text-white font-bold text-sm shadow-lg shadow-emerald-500/20 transition-all"
+              >
+                Publish listing
+              </button>
               <button type="button" onClick={() => setShowForm(false)} className="px-5 py-2.5 rounded-xl border border-slate-200 font-semibold text-sm">Cancel</button>
             </div>
           </form>
@@ -205,11 +337,17 @@ export function FarmerProduce() {
                 <h3 className="font-bold text-slate-900">{l.cropName}</h3>
                 <StatusChip status={l.moistureContentPct <= 13.5 ? "optimal" : "alert"} />
               </div>
-              <p className="text-agri-emerald font-bold mt-1">KES {l.pricePerKgKes}/kg</p>
+              <p className="text-agri-emerald font-bold mt-1">KES {l.pricePerKgKes.toFixed(2)}/kg</p>
               <p className="text-sm text-slate-500 mt-1">{l.quantityKg.toLocaleString()} kg available</p>
               <div className="flex justify-between mt-3 text-xs">
                 <span className="text-slate-500">Moisture {l.moistureContentPct}%</span>
                 <span className="font-semibold text-blue-600">Demand {100 - l.spoilageRiskPct}%</span>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2 text-[10px]">
+                <span className="px-2 py-1 rounded-full bg-slate-100 border border-slate-200">{l.county || currentFarmer.location.county}</span>
+                <span className={`px-2 py-1 rounded-full border ${l.transportNeeded ? "bg-amber-50 border-amber-200 text-amber-700" : "bg-emerald-50 border-emerald-200 text-emerald-700"}`}>
+                  {l.transportNeeded ? "Transport needed" : "Transport ready"}
+                </span>
               </div>
             </div>
           </div>

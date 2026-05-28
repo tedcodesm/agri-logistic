@@ -37,7 +37,6 @@ export function getNavItems(role: UserRole): NavItem[] {
         { label: "Market Insights", path: "market", icon: TrendingUp },
         { label: "Mkulima Intel", path: "intel", icon: BrainCircuit },
         { label: "Payments", path: "payments", icon: Wallet },
-        { label: "Storage & Quality", path: "storage", icon: Thermometer },
         { label: "Notifications", path: "notifications", icon: Bell },
         { label: "Profile", path: "profile", icon: User },
       ];
