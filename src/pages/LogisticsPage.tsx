@@ -3,14 +3,11 @@ import { motion } from "motion/react";
 import {
   Truck,
   MapPin,
-  Radio,
   Navigation,
-  Thermometer,
   Users,
-  Activity,
   Gauge,
 } from "lucide-react";
-import IntegratedGoogleMap from "../components/IntegratedGoogleMap";
+import LiveLogisticsSimulation from "../components/logistics/LiveLogisticsSimulation";
 
 const LOGISTICS_FEATURES = [
   {
@@ -33,12 +30,6 @@ const LOGISTICS_FEATURES = [
     title: "Delivery coordination",
     desc: "Driver dispatch, SMS alerts, and proof-of-delivery codes synced to escrow release.",
   },
-];
-
-const DEMO_MARKERS = [
-  { id: "1", lat: -0.9, lng: 36.8, title: "Nyandarua Collection", role: "COLLECTION" as const, description: "Potato aggregation point" },
-  { id: "2", lat: -1.0, lng: 36.7, title: "Truck KCD-401", role: "TRUCK" as const, description: "En route · 68 km/h" },
-  { id: "3", lat: -1.28, lng: 36.82, title: "Nairobi Buyer Hub", role: "BUYER" as const, description: "Delivery ETA 2h 14m" },
 ];
 
 export default function LogisticsPage() {
@@ -84,45 +75,7 @@ export default function LogisticsPage() {
             ))}
           </div>
 
-          <div className="grid lg:grid-cols-5 gap-8 items-start">
-            <div className="lg:col-span-3 rounded-2xl overflow-hidden border border-slate-200 shadow-xl">
-              <div className="bg-slate-900 px-4 py-3 flex items-center justify-between">
-                <span className="text-white text-sm font-bold flex items-center gap-2">
-                  <Radio className="w-4 h-4 text-red-500 animate-pulse" /> Live map preview
-                </span>
-                <span className="text-[10px] text-slate-400 font-mono">3 active nodes</span>
-              </div>
-              <IntegratedGoogleMap
-                center={{ lat: -1.1, lng: 36.75 }}
-                zoom={9}
-                markers={DEMO_MARKERS}
-                height="320px"
-              />
-            </div>
-
-            <div className="lg:col-span-2 space-y-4">
-              <h2 className="text-2xl font-display font-bold text-slate-900">Live telemetry snapshot</h2>
-              <p className="text-slate-600 text-sm">
-                When a Google Maps API key is configured, this panel shows real markers. Otherwise, a styled fallback map demonstrates the UX for judges.
-              </p>
-              {[
-                { label: "Convoy KCD-401", value: "En route", sub: "Nyandarua → Nairobi", icon: Truck },
-                { label: "Cargo temp", value: "4.2°C", sub: "Cold-chain optimal", icon: Thermometer },
-                { label: "Fleet status", value: "12 active", sub: "3 awaiting dispatch", icon: Activity },
-              ].map((card) => (
-                <div key={card.label} className="flex gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
-                  <div className="w-10 h-10 rounded-lg bg-agri-navy flex items-center justify-center">
-                    <card.icon className="w-5 h-5 text-agri-emerald" />
-                  </div>
-                  <div>
-                    <div className="text-xs text-slate-500 uppercase tracking-wide">{card.label}</div>
-                    <div className="font-bold text-slate-900">{card.value}</div>
-                    <div className="text-xs text-slate-500">{card.sub}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <LiveLogisticsSimulation />
         </div>
       </section>
     </div>

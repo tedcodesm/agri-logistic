@@ -27,7 +27,6 @@ app.use(express.json());
 // Previously these were imported but never mounted — their routes didn't exist.
 registerAuthRoutes(app);
 registerAfricasTalkingRoutes(app, PORT);
-registerGeminiRoutes(app, ai);
 registerMarketRoutes(app);
 registerPesapalRoutes(app, PORT);
 
@@ -55,6 +54,8 @@ if (API_KEY && API_KEY !== "MY_GEMINI_API_KEY") {
     "Falling back to high-fidelity simulated local analytics layer."
   );
 }
+
+registerGeminiRoutes(app, ai);
 
 // ----------------------------------------------------
 // A. Agri-Logistics AI Grounding - Chat & Translation

@@ -7,6 +7,7 @@ import { StatCard, PageHeader, DashboardCard, ActivityFeed, StatusChip, ChartCon
 import IntegratedGoogleMap from "../../components/IntegratedGoogleMap";
 import BuyersPanel from "../../components/BuyersPanel";
 import { CargoStatus, PaymentStatus } from "../../types";
+import LiveLogisticsSimulation from "../../components/logistics/LiveLogisticsSimulation";
 
 const PRICE_CHANGES = [
   { day: "Mon", maize: 40, beans: 92 },
@@ -151,27 +152,10 @@ export function BuyerOrders() {
 }
 
 export function BuyerLogistics() {
-  const { activeTrips, orders } = useDashboardData();
   return (
     <div>
       <PageHeader title="Logistics tracking" description="Real-time GPS, telemetry, and shipment timelines." />
-      <DashboardCard title="Live map" className="mb-6">
-        <IntegratedGoogleMap
-          center={{ lat: -1.05, lng: 36.78 }}
-          zoom={9}
-          markers={[
-            { id: "w", lat: -0.64, lng: 36.61, title: "Nyandarua warehouse", role: "WAREHOUSE" },
-            { id: "t", lat: -1.0, lng: 36.7, title: "Active truck", role: "TRUCK" },
-            { id: "b", lat: -1.29, lng: 36.82, title: "Nairobi delivery", role: "BUYER" },
-          ]}
-          height="320px"
-        />
-      </DashboardCard>
-      <div className="grid md:grid-cols-3 gap-4">
-        <StatCard label="ETA" value="2h 14m" icon={Truck} accent="cyan" />
-        <StatCard label="Cargo temp" value="4.2°C" icon={Truck} accent="emerald" />
-        <StatCard label="Checkpoints" value="3/5" icon={Truck} accent="blue" />
-      </div>
+      <LiveLogisticsSimulation compact />
     </div>
   );
 }
