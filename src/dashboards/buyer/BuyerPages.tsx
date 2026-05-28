@@ -89,6 +89,8 @@ export function BuyerMarketplace() {
   const [crop, setCrop] = useState("all");
 
   const filtered = listings.filter((l) => {
+    if (l.quantityKg <= 0) return false;
+    if (county !== "all" && (l.county || "").toLowerCase() !== county.toLowerCase()) return false;
     if (crop !== "all" && !l.cropName.toLowerCase().includes(crop.toLowerCase())) return false;
     return true;
   });

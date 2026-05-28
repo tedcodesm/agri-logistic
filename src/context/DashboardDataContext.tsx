@@ -59,6 +59,18 @@ interface DashboardDataContextValue {
 
 const DashboardDataContext = createContext<DashboardDataContextValue | null>(null);
 
+function mergeListings(primary: ProduceListing[], secondary: ProduceListing[]) {
+  const seen = new Set(primary.map((item) => item.id));
+  const merged = [...primary];
+  for (const item of secondary) {
+    if (!seen.has(item.id)) {
+      merged.push(item);
+      seen.add(item.id);
+    }
+  }
+  return merged;
+}
+
 export function DashboardDataProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const email = user?.email?.toLowerCase() ?? "";
@@ -72,13 +84,30 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
   const [listings, setListings] = useState<ProduceListing[]>(SEED_LISTINGS);
   const [orders, setOrders] = useState<Order[]>(SEED_ORDERS);
   const [activeTrips, setActiveTrips] = useState<DeliveryTrip[]>([]);
+  const localListingsKey = React.useMemo(
+    () => `agri:listings:${email || "anonymous"}`,
+    [email]
+  );
+
+  React.useEffect(() => {
+    try {
+      const raw = localStorage.getItem(localListingsKey);
+      if (!raw) return;
+      const localListings = JSON.parse(raw) as ProduceListing[];
+      if (Array.isArray(localListings) && localListings.length > 0) {
+        setListings((prev) => mergeListings(prev, localListings));
+      }
+    } catch {
+      // Ignore local cache parse/storage failures
+    }
+  }, [localListingsKey]);
 
   React.useEffect(() => {
     authFetch("/api/products")
       .then((r) => r.json())
       .then((d) => {
-        if (Array.isArray(d.products) && d.products.length) {
-          setListings(d.products as ProduceListing[]);
+        if (Array.isArray(d.products)) {
+          setListings((prev) => mergeListings(d.products as ProduceListing[], prev));
         }
       })
       .catch(() => undefined);
@@ -112,6 +141,15 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
 
     return ownedByCurrentFarmer;
   }, [listings, currentFarmerId, user?.role]);
+
+  React.useEffect(() => {
+    if (user?.role !== "farmer") return;
+    try {
+      localStorage.setItem(localListingsKey, JSON.stringify(myListings));
+    } catch {
+      // Ignore local cache write failures
+    }
+  }, [user?.role, localListingsKey, myListings]);
 
   const myOrdersAsBuyer = useMemo(
     () => orders.filter((o) => o.buyerId === currentBuyerId),

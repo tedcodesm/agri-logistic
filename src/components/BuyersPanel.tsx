@@ -36,6 +36,11 @@ interface BuyersPanelProps {
   initialBuyerId?: string;
 }
 
+interface CartItem {
+  listing: ProduceListing;
+  quantityKg: number;
+}
+
 export default function BuyersPanel({
   buyers,
   listings,
@@ -49,9 +54,14 @@ export default function BuyersPanel({
   const [filterCounty, setFilterCounty] = useState<string>("All");
   
   // Cart state
-  const [cart, setCart] = useState<ProduceListing[]>([]);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [selectedQuantities, setSelectedQuantities] = useState<Record<string, number>>({});
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(PaymentMethod.M_PESA);
   const [phoneNumber, setPhoneNumber] = useState<string>("0711223344");
+  const [deliveryMode, setDeliveryMode] = useState<"DELIVERY" | "PICKUP">("DELIVERY");
+  const [deliveryAddress, setDeliveryAddress] = useState<string>(
+    `${(buyers[0]?.companyName ?? "Buyer")} Delivery Depot, Industrial Zone`
+  );
 
   // MPESA STK Simulator status
   const [checkoutState, setCheckoutState] = useState<"IDLE" | "PENDING" | "PROMPTED" | "SUCCESS" | "FAILED">("IDLE");
@@ -68,17 +78,33 @@ export default function BuyersPanel({
     return matchesCrop && matchesCounty;
   });
 
+  function getDesiredQuantity(item: ProduceListing) {
+    const requested = selectedQuantities[item.id] ?? Math.min(100, Math.max(1, Math.floor(item.quantityKg)));
+    return Math.max(1, Math.min(requested, item.quantityKg));
+  }
+
   function addToCart(item: ProduceListing) {
-    if (cart.some(c => c.id === item.id)) return;
-    setCart([...cart, item]);
+    if (cart.some(c => c.listing.id === item.id)) return;
+    const quantityKg = getDesiredQuantity(item);
+    setCart([...cart, { listing: item, quantityKg }]);
   }
 
   function removeFromCart(id: string) {
-    setCart(cart.filter(item => item.id !== id));
+    setCart(cart.filter(item => item.listing.id !== id));
+  }
+
+  function updateCartQuantity(id: string, quantityKg: number) {
+    setCart((prev) =>
+      prev.map((item) => {
+        if (item.listing.id !== id) return item;
+        const safeQty = Math.max(1, Math.min(quantityKg, item.listing.quantityKg));
+        return { ...item, quantityKg: safeQty };
+      })
+    );
   }
 
   const totalKg = cart.reduce((acc, c) => acc + c.quantityKg, 0);
-  const totalCost = cart.reduce((acc, c) => acc + (c.quantityKg * c.pricePerKgKes), 0);
+  const totalCost = cart.reduce((acc, c) => acc + (c.quantityKg * c.listing.pricePerKgKes), 0);
 
   // Trigger PesaPal Secure Checkout Gateway
   const [pesapalIframeUrl, setPesapalIframeUrl] = useState<string>("");
@@ -86,6 +112,10 @@ export default function BuyersPanel({
   useEffect(() => {
     if (initialBuyerId) setSelectedBuyerId(initialBuyerId);
   }, [initialBuyerId]);
+
+  useEffect(() => {
+    setDeliveryAddress(`${currentBuyer.companyName} Delivery Depot, Industrial Zone, ${currentBuyer.location.city}`);
+  }, [currentBuyer.companyName, currentBuyer.location.city]);
 
   async function handlePesapalCheckout() {
     setCheckoutState("PENDING");
@@ -121,14 +151,14 @@ export default function BuyersPanel({
             const newOrder: Order = {
               id: orderId,
               buyerId: selectedBuyerId,
-              listingIds: cart.map(c => c.id),
+              listingIds: cart.map(c => c.listing.id),
               totalQuantityKg: totalKg,
               totalCostKes: totalCost,
               paymentMethod: PaymentMethod.PESAPAL,
               paymentStatus: PaymentStatus.COMPLETED,
               mpesaReceipt: virtualReceipt,
               status: CargoStatus.READY_FOR_COLLECTION,
-              deliveryAddress: `${currentBuyer.companyName} Delivery Depot, Industrial Zone, ${currentBuyer.location.city}`,
+              deliveryAddress: deliveryMode === "DELIVERY" ? deliveryAddress : `${currentBuyer.companyName} Pickup Point, ${currentBuyer.location.city}`,
               createdAt: new Date().toISOString()
             };
 
@@ -181,14 +211,14 @@ export default function BuyersPanel({
     const newOrder: Order = {
       id: "O-" + Math.round(Math.random() * 9000 + 1000),
       buyerId: selectedBuyerId,
-      listingIds: cart.map(c => c.id),
+      listingIds: cart.map(c => c.listing.id),
       totalQuantityKg: totalKg,
       totalCostKes: totalCost,
       paymentMethod,
       paymentStatus: PaymentStatus.COMPLETED,
       mpesaReceipt: virtualReceipt,
       status: CargoStatus.READY_FOR_COLLECTION,
-      deliveryAddress: `${currentBuyer.companyName} Delivery Depot, Industrial Zone, ${currentBuyer.location.city}`,
+      deliveryAddress: deliveryMode === "DELIVERY" ? deliveryAddress : `${currentBuyer.companyName} Pickup Point, ${currentBuyer.location.city}`,
       createdAt: new Date().toISOString()
     };
 
@@ -200,13 +230,13 @@ export default function BuyersPanel({
     const newOrder: Order = {
       id: "O-" + Math.round(Math.random() * 9000 + 1000),
       buyerId: selectedBuyerId,
-      listingIds: cart.map(c => c.id),
+      listingIds: cart.map(c => c.listing.id),
       totalQuantityKg: totalKg,
       totalCostKes: totalCost,
       paymentMethod,
       paymentStatus: PaymentStatus.PENDING,
       status: CargoStatus.READY_FOR_COLLECTION,
-      deliveryAddress: `${currentBuyer.companyName} Dispatch Gate, ${currentBuyer.location.city}`,
+      deliveryAddress: deliveryMode === "DELIVERY" ? deliveryAddress : `${currentBuyer.companyName} Dispatch Gate, ${currentBuyer.location.city}`,
       createdAt: new Date().toISOString()
     };
     onPlaceOrder(newOrder);
@@ -350,8 +380,9 @@ export default function BuyersPanel({
             ) : (
               filteredListings.map(item => {
                 const locationCounty = item.county || "Kenya";
-                const inCart = cart.some(c => c.id === item.id);
+                const inCart = cart.some(c => c.listing.id === item.id);
                 const isGradeA = item.grade === "A";
+                const desiredQty = selectedQuantities[item.id] ?? Math.min(100, Math.max(1, Math.floor(item.quantityKg)));
                 
                 return (
                   <motion.div 
@@ -430,11 +461,27 @@ export default function BuyersPanel({
                       </div>
 
                       <div className="flex justify-between items-end mt-auto pt-4 border-t border-slate-100">
-                        <div>
+                        <div className="flex-1 mr-3">
                           <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Price / Kg</div>
                           <div className="flex items-baseline gap-1">
                             <span className="text-xs font-bold text-slate-400">KES</span>
                             <strong className="text-xl font-display font-bold text-slate-900 tracking-tight">{item.pricePerKgKes.toLocaleString()}</strong>
+                          </div>
+                          <div className="mt-2">
+                            <label className="text-[10px] text-slate-500 font-semibold">Quantity (kg)</label>
+                            <input
+                              type="number"
+                              min={1}
+                              max={item.quantityKg}
+                              value={desiredQty}
+                              onChange={(e) =>
+                                setSelectedQuantities((prev) => ({
+                                  ...prev,
+                                  [item.id]: Number(e.target.value),
+                                }))
+                              }
+                              className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
+                            />
                           </div>
                         </div>
                         <button
@@ -446,7 +493,7 @@ export default function BuyersPanel({
                               : "bg-agri-navy hover:bg-slate-800 text-white hover:shadow-lg hover:-translate-y-0.5"
                           }`}
                         >
-                          {inCart ? "Added" : "Procure"}
+                          {inCart ? "Added" : "Buy"}
                         </button>
                       </div>
                     </div>
@@ -480,24 +527,37 @@ export default function BuyersPanel({
               <>
                 <div className="space-y-3 max-h-[250px] overflow-y-auto pr-2 custom-scrollbar">
                   {cart.map(item => (
-                    <div key={item.id} className="flex justify-between items-center p-3 rounded-xl border border-slate-200 bg-slate-50 group">
+                    <div key={item.listing.id} className="p-3 rounded-xl border border-slate-200 bg-slate-50 group">
+                      <div className="flex justify-between items-center">
                       <div className="flex-1">
-                        <h5 className="font-bold text-slate-900 text-sm">{item.cropName}</h5>
+                        <h5 className="font-bold text-slate-900 text-sm">{item.listing.cropName}</h5>
                         <div className="flex items-center gap-2 mt-1">
-                          <span className="text-slate-500 text-xs font-medium">{item.quantityKg.toLocaleString()} Kg</span>
+                          <span className="text-slate-500 text-xs font-medium">{item.listing.quantityKg.toLocaleString()} Kg available</span>
                           <span className="text-slate-300 text-[10px]">•</span>
-                          <span className="text-slate-500 text-xs font-medium">KES {item.pricePerKgKes}/Kg</span>
+                          <span className="text-slate-500 text-xs font-medium">KES {item.listing.pricePerKgKes}/Kg</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <strong className="text-slate-900 font-mono text-sm">{(item.quantityKg * item.pricePerKgKes).toLocaleString()}</strong>
+                        <strong className="text-slate-900 font-mono text-sm">{(item.quantityKg * item.listing.pricePerKgKes).toLocaleString()}</strong>
                         <button
-                          onClick={() => removeFromCart(item.id)}
+                          onClick={() => removeFromCart(item.listing.id)}
                           className="text-slate-400 hover:text-red-500 p-1.5 rounded-lg hover:bg-white transition-colors border border-transparent hover:border-red-100"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
+                    </div>
+                    <div className="mt-2 flex items-center gap-2">
+                      <label className="text-[11px] text-slate-500 font-semibold">Buy Qty (kg)</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={item.listing.quantityKg}
+                        value={item.quantityKg}
+                        onChange={(e) => updateCartQuantity(item.listing.id, Number(e.target.value))}
+                        className="w-24 rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                      />
+                    </div>
                     </div>
                   ))}
                 </div>
@@ -514,6 +574,35 @@ export default function BuyersPanel({
                 </div>
 
                 <div className="mt-2 pt-4 border-t border-slate-100">
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Delivery Option</label>
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <button
+                      type="button"
+                      onClick={() => setDeliveryMode("DELIVERY")}
+                      className={`p-2 rounded-xl border-2 text-xs font-bold ${deliveryMode === "DELIVERY" ? "border-agri-emerald bg-agri-emerald/5 text-agri-emerald-dark" : "border-slate-200 text-slate-500"}`}
+                    >
+                      Door Delivery
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeliveryMode("PICKUP")}
+                      className={`p-2 rounded-xl border-2 text-xs font-bold ${deliveryMode === "PICKUP" ? "border-agri-navy bg-slate-100 text-agri-navy" : "border-slate-200 text-slate-500"}`}
+                    >
+                      Pickup
+                    </button>
+                  </div>
+                  {deliveryMode === "DELIVERY" && (
+                    <div className="mb-4">
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Delivery Address</label>
+                      <input
+                        type="text"
+                        value={deliveryAddress}
+                        onChange={(e) => setDeliveryAddress(e.target.value)}
+                        className="w-full rounded-xl bg-slate-50 border border-slate-200 p-3 text-sm outline-none focus:border-agri-emerald focus:ring-2 focus:ring-agri-emerald/20 transition-all"
+                      />
+                    </div>
+                  )}
+
                   <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Funding Source</label>
                   <div className="grid grid-cols-2 gap-3">
                     <button
