@@ -164,7 +164,6 @@ export function FarmerProduce() {
   const [availabilityStatus, setAvailabilityStatus] = useState<"AVAILABLE" | "LIMITED" | "OUT_OF_STOCK">("AVAILABLE");
   const [deliveryAvailable, setDeliveryAvailable] = useState(true);
   const [transportNeeded, setTransportNeeded] = useState(false);
-  const [moisture, setMoisture] = useState(13.2);
   const [images, setImages] = useState<{ id: string; url: string; progress: number }[]>([]);
   const [aiTip, setAiTip] = useState<string>("");
   const [showForm, setShowForm] = useState(false);
@@ -186,16 +185,12 @@ export function FarmerProduce() {
             data?.regionalAnomalies?.[0]?.location
               ? `Current ${cropName.toLowerCase()} demand is high near ${data.regionalAnomalies[0].location}.`
               : "";
-          const moistureNote =
-            moisture > (data?.maxMoistureAllowedPct || 13.5)
-              ? `Moisture ${moisture}% is above safe threshold.`
-              : `Moisture ${moisture}% is within safe storage range.`;
-          setAiTip(`${demand} ${moistureNote} Recommended price: KES ${data?.predictedPricePerKg || pricePerKg}/kg.`);
+          setAiTip(`${demand} Recommended price: KES ${data?.predictedPricePerKg || pricePerKg}/kg.`);
         })
         .catch(() => setAiTip("Mkulima Intel: list Grade A stock this week for stronger Nairobi margins."));
     }, 250);
     return () => clearTimeout(t);
-  }, [showForm, cropName, county, moisture, pricePerKg]);
+  }, [showForm, cropName, county, pricePerKg]);
 
   function handleFileSelect(fileList: FileList | null) {
     if (!fileList?.length) return;
@@ -232,9 +227,9 @@ export function FarmerProduce() {
       deliveryAvailable,
       transportNeeded,
       grade: ProduceGrade.GRADE_A,
-      moistureContentPct: moisture,
+      moistureContentPct: 13.2,
       description: description || `Fresh ${cropName} from ${county}`,
-      spoilageRiskPct: moisture > 14 ? 18 : 6,
+      spoilageRiskPct: 6,
       imageUrl: images[0]?.url || `https://images.unsplash.com/photo-1518977824744-7797548211cc?w=400&auto=format&fit=crop`,
       imageUrls: images.map((img) => img.url),
       estimatedDeliveryEtaHours: deliveryAvailable ? 6 : 0,
@@ -283,7 +278,6 @@ export function FarmerProduce() {
             </div>
             <input className="border rounded-xl px-3 py-2 text-sm" placeholder="County/location" value={county} onChange={(e) => setCounty(e.target.value)} />
             <input type="date" className="border rounded-xl px-3 py-2 text-sm" value={harvestDate} onChange={(e) => setHarvestDate(e.target.value)} />
-            <input type="number" step="0.1" className="border rounded-xl px-3 py-2 text-sm" placeholder="Moisture %" value={moisture} onChange={(e) => setMoisture(+e.target.value)} />
             <select className="border rounded-xl px-3 py-2 text-sm" value={availabilityStatus} onChange={(e) => setAvailabilityStatus(e.target.value as any)}>
               <option value="AVAILABLE">Available</option><option value="LIMITED">Limited</option><option value="OUT_OF_STOCK">Out of stock</option>
             </select>
@@ -314,7 +308,7 @@ export function FarmerProduce() {
             </div>
             <div className="sm:col-span-2 rounded-xl border border-emerald-200 bg-emerald-50/50 p-3 text-sm text-emerald-900">
               <p className="font-semibold flex items-center gap-2"><Sparkles className="w-4 h-4" /> Mkulima Intel Suggestion</p>
-              <p className="mt-1">{aiTip || "Analyzing demand, moisture safety, and price recommendations..."}</p>
+              <p className="mt-1">{aiTip || "Analyzing demand and price recommendations..."}</p>
             </div>
             <div className="sm:col-span-2 flex gap-2">
               <button
@@ -335,12 +329,11 @@ export function FarmerProduce() {
             <div className="p-4">
               <div className="flex justify-between items-start">
                 <h3 className="font-bold text-slate-900">{l.cropName}</h3>
-                <StatusChip status={l.moistureContentPct <= 13.5 ? "optimal" : "alert"} />
+                <StatusChip status="optimal" />
               </div>
               <p className="text-agri-emerald font-bold mt-1">KES {l.pricePerKgKes.toFixed(2)}/kg</p>
               <p className="text-sm text-slate-500 mt-1">{l.quantityKg.toLocaleString()} kg available</p>
               <div className="flex justify-between mt-3 text-xs">
-                <span className="text-slate-500">Moisture {l.moistureContentPct}%</span>
                 <span className="font-semibold text-blue-600">Demand {100 - l.spoilageRiskPct}%</span>
               </div>
               <div className="mt-3 flex flex-wrap gap-2 text-[10px]">

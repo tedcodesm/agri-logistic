@@ -101,10 +101,17 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
   const currentBuyer = buyers.find((b) => b.id === currentBuyerId) ?? buyers[0];
   const currentDriver = drivers.find((d) => d.id === currentDriverId) ?? drivers[0];
 
-  const myListings = useMemo(
-    () => listings.filter((l) => l.farmerId === currentFarmerId),
-    [listings, currentFarmerId]
-  );
+  const myListings = useMemo(() => {
+    const ownedByCurrentFarmer = listings.filter((l) => l.farmerId === currentFarmerId);
+    if (ownedByCurrentFarmer.length > 0) return ownedByCurrentFarmer;
+
+    // Some older/demo records can carry a different farmerId mapping.
+    // Fallback to showing all listings for farmer accounts so previously listed
+    // products are still visible in "My Produce" instead of appearing empty.
+    if (user?.role === "farmer") return listings;
+
+    return ownedByCurrentFarmer;
+  }, [listings, currentFarmerId, user?.role]);
 
   const myOrdersAsBuyer = useMemo(
     () => orders.filter((o) => o.buyerId === currentBuyerId),
