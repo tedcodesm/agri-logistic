@@ -21,9 +21,10 @@ import {
   Droplets,
   TrendingUp,
   UploadCloud,
-  ImagePlus,
   Truck,
   Sparkles,
+  Pencil,
+  X,
 } from "lucide-react";
 import { useDashboardData } from "../../context/DashboardDataContext";
 import { useAuth } from "../../context/AuthContext";
@@ -151,7 +152,7 @@ export function FarmerOverview() {
 }
 
 export function FarmerProduce() {
-  const { myListings, currentFarmerId, currentFarmer, addListing } = useDashboardData();
+  const { myListings, currentFarmerId, currentFarmer, addListing, updateListing } = useDashboardData();
   const [cropName, setCropName] = useState("Maize");
   const [category, setCategory] = useState("Grains");
   const [description, setDescription] = useState("");
@@ -165,8 +166,10 @@ export function FarmerProduce() {
   const [deliveryAvailable, setDeliveryAvailable] = useState(true);
   const [transportNeeded, setTransportNeeded] = useState(false);
   const [images, setImages] = useState<{ id: string; url: string; progress: number }[]>([]);
+  const [savedImagePath, setSavedImagePath] = useState("");
   const [aiTip, setAiTip] = useState<string>("");
   const [showForm, setShowForm] = useState(false);
+  const [editingListingId, setEditingListingId] = useState<string | null>(null);
 
   const quantityKg = quantityUnit === "tonnes" ? quantity * 1000 : quantity;
   const pricePerKg = priceUnit === "tonne" ? price / 1000 : price;
@@ -210,10 +213,59 @@ export function FarmerProduce() {
     });
   }
 
+  function resetForm() {
+    setCropName("Maize");
+    setCategory("Grains");
+    setDescription("");
+    setQuantity(500);
+    setQuantityUnit("kg");
+    setPrice(42);
+    setPriceUnit("kg");
+    setCounty(currentFarmer.location.county);
+    setHarvestDate(new Date().toISOString().slice(0, 10));
+    setAvailabilityStatus("AVAILABLE");
+    setDeliveryAvailable(true);
+    setTransportNeeded(false);
+    setImages([]);
+    setSavedImagePath("");
+    setEditingListingId(null);
+  }
+
+  function openEdit(listing: ProduceListing) {
+    setCropName(listing.cropName);
+    setCategory(listing.category || "Grains");
+    setDescription(listing.description || "");
+    setQuantity(listing.quantityKg);
+    setQuantityUnit(listing.quantityUnit || "kg");
+    setPrice(listing.priceUnit === "tonne" ? Math.round(listing.pricePerKgKes * 1000) : listing.pricePerKgKes);
+    setPriceUnit(listing.priceUnit || "kg");
+    setCounty(listing.county || currentFarmer.location.county);
+    setHarvestDate(listing.harvestDate || new Date().toISOString().slice(0, 10));
+    setAvailabilityStatus(listing.availabilityStatus || "AVAILABLE");
+    setDeliveryAvailable(Boolean(listing.deliveryAvailable));
+    setTransportNeeded(Boolean(listing.transportNeeded));
+    setImages(
+      listing.imageUrls?.length
+        ? listing.imageUrls.map((url, idx) => ({ id: `${listing.id}-${idx}`, url, progress: 100 }))
+        : listing.imageUrl
+          ? [{ id: `${listing.id}-main`, url: listing.imageUrl, progress: 100 }]
+          : []
+    );
+    setSavedImagePath(listing.imageUrl && !listing.imageUrl.startsWith("blob:") ? listing.imageUrl : "");
+    setEditingListingId(listing.id);
+    setShowForm(true);
+  }
+
+  function removeSelectedImage(id: string) {
+    setImages((prev) => prev.filter((img) => img.id !== id));
+  }
+
   function handleAdd(e: React.FormEvent) {
     e.preventDefault();
+    const selectedUrls = images.map((img) => img.url).filter(Boolean);
+    const resolvedImage = selectedUrls[0] || savedImagePath.trim() || (editingListingId ? undefined : "");
     const listing: ProduceListing = {
-      id: `L-${Date.now()}`,
+      id: editingListingId || `L-${Date.now()}`,
       farmerId: currentFarmerId,
       cropName,
       quantityKg: Math.max(0, quantityKg),
@@ -230,16 +282,20 @@ export function FarmerProduce() {
       moistureContentPct: 13.2,
       description: description || `Fresh ${cropName} from ${county}`,
       spoilageRiskPct: 6,
-      imageUrl: images[0]?.url || `https://images.unsplash.com/photo-1518977824744-7797548211cc?w=400&auto=format&fit=crop`,
-      imageUrls: images.map((img) => img.url),
+      imageUrl: resolvedImage,
+      imageUrls: selectedUrls.length ? selectedUrls : savedImagePath.trim() ? [savedImagePath.trim()] : [],
       estimatedDeliveryEtaHours: deliveryAvailable ? 6 : 0,
       trustScore: 96,
       timestamp: new Date().toISOString(),
       syncStatus: "SYNCED",
     };
-    addListing(listing);
+    if (editingListingId) {
+      updateListing(editingListingId, listing);
+    } else {
+      addListing(listing);
+    }
     setShowForm(false);
-    setImages([]);
+    resetForm();
   }
 
   return (
@@ -247,10 +303,19 @@ export function FarmerProduce() {
       <PageHeader
         title="My Produce"
         description="List crops, set prices, and track stock availability."
-        actions={<CtaButton onClick={() => setShowForm(true)}>+ Add listing</CtaButton>}
+        actions={
+          <CtaButton
+            onClick={() => {
+              resetForm();
+              setShowForm(true);
+            }}
+          >
+            + Add listing
+          </CtaButton>
+        }
       />
       {showForm && (
-        <DashboardCard title="New crop listing" className="mb-6">
+        <DashboardCard title={editingListingId ? "Edit crop listing" : "New crop listing"} className="mb-6">
           <form onSubmit={handleAdd} className="grid sm:grid-cols-2 gap-4">
             <input className="border rounded-xl px-3 py-2 text-sm" placeholder="Crop/Product name" value={cropName} onChange={(e) => setCropName(e.target.value)} />
             <select className="border rounded-xl px-3 py-2 text-sm" value={category} onChange={(e) => setCategory(e.target.value)}>
@@ -287,15 +352,33 @@ export function FarmerProduce() {
                 <UploadCloud className="w-4 h-4 text-agri-emerald" /> Drag & drop crop images or click to upload
                 <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleFileSelect(e.target.files)} />
               </label>
+              <p className="text-[11px] text-slate-500 mt-2">
+                Store downloaded product photos in <strong>public/assets/products</strong> and reference them below (example:{" "}
+                <code>/assets/products/irish-potatoes.jpg</code>).
+              </p>
+              <input
+                className="mt-2 w-full border rounded-xl px-3 py-2 text-sm"
+                placeholder="Saved image path (optional): /assets/products/irish-potatoes.jpg"
+                value={savedImagePath}
+                onChange={(e) => setSavedImagePath(e.target.value)}
+              />
               {images.length > 0 && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
                   {images.map((img) => (
                     <div key={img.id} className="rounded-xl overflow-hidden border border-slate-200 bg-white">
                       <div className="h-20 bg-cover bg-center" style={{ backgroundImage: `url(${img.url})` }} />
-                      <div className="p-2">
+                      <div className="p-2 space-y-2">
                         <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
                           <motion.div initial={{ width: 0 }} animate={{ width: `${img.progress}%` }} className="h-full bg-agri-emerald" />
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => removeSelectedImage(img.id)}
+                          className="w-full text-xs inline-flex items-center justify-center gap-1 rounded-md border border-slate-200 px-2 py-1 hover:bg-slate-50"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                          Remove
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -315,9 +398,18 @@ export function FarmerProduce() {
                 type="submit"
                 className="px-5 py-2.5 rounded-xl bg-agri-emerald hover:bg-agri-emerald-dark text-white font-bold text-sm shadow-lg shadow-emerald-500/20 transition-all"
               >
-                Publish listing
+                {editingListingId ? "Save changes" : "Publish listing"}
               </button>
-              <button type="button" onClick={() => setShowForm(false)} className="px-5 py-2.5 rounded-xl border border-slate-200 font-semibold text-sm">Cancel</button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowForm(false);
+                  resetForm();
+                }}
+                className="px-5 py-2.5 rounded-xl border border-slate-200 font-semibold text-sm"
+              >
+                Cancel
+              </button>
             </div>
           </form>
         </DashboardCard>
@@ -325,7 +417,7 @@ export function FarmerProduce() {
       <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
         {myListings.map((l) => (
           <div key={l.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-            <div className="h-36 bg-slate-100 bg-cover bg-center" style={{ backgroundImage: `url(${l.imageUrl || ""})` }} />
+            <div className="h-36 bg-slate-100 bg-cover bg-center" style={{ backgroundImage: l.imageUrl ? `url(${l.imageUrl})` : "none" }} />
             <div className="p-4">
               <div className="flex justify-between items-start">
                 <h3 className="font-bold text-slate-900">{l.cropName}</h3>
@@ -342,6 +434,14 @@ export function FarmerProduce() {
                   {l.transportNeeded ? "Transport needed" : "Transport ready"}
                 </span>
               </div>
+              <button
+                type="button"
+                onClick={() => openEdit(l)}
+                className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-agri-emerald hover:underline"
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                Edit listing
+              </button>
             </div>
           </div>
         ))}

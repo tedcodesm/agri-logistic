@@ -22,6 +22,7 @@ import {
   SEED_ORDERS,
 } from "../data";
 import { authFetch } from "../lib/authFetch";
+import { getProductImage } from "../lib/productImages";
 
 const EMAIL_ENTITY_MAP: Record<string, { farmerId?: string; buyerId?: string; driverId?: string }> = {
   "farmer@agrilogistics.ke": { farmerId: "F-103" },
@@ -49,6 +50,7 @@ interface DashboardDataContextValue {
   myOrdersAsBuyer: Order[];
   myTrips: DeliveryTrip[];
   addListing: (listing: ProduceListing) => void;
+  updateListing: (listingId: string, patch: Partial<ProduceListing>) => void;
   syncListings: (local: ProduceListing[]) => void;
   placeOrder: (order: Order) => void;
   addTrip: (trip: DeliveryTrip) => void;
@@ -58,17 +60,54 @@ interface DashboardDataContextValue {
 }
 
 const DashboardDataContext = createContext<DashboardDataContextValue | null>(null);
+const SHARED_LISTINGS_KEY = "agri:listings:shared";
+const LISTINGS_IMAGE_MIGRATION_KEY = "agri:listings:image-migration:v1";
 
 function mergeListings(primary: ProduceListing[], secondary: ProduceListing[]) {
-  const seen = new Set(primary.map((item) => item.id));
-  const merged = [...primary];
-  for (const item of secondary) {
-    if (!seen.has(item.id)) {
-      merged.push(item);
-      seen.add(item.id);
-    }
+  return sanitizeListings([...primary, ...secondary]);
+}
+
+function listingSignature(item: ProduceListing) {
+  return [
+    item.farmerId,
+    item.cropName.trim().toLowerCase(),
+    item.quantityKg,
+    item.pricePerKgKes,
+    item.county || "",
+    item.harvestDate || "",
+  ].join("|");
+}
+
+function normalizeListing(item: ProduceListing): ProduceListing {
+  const isSeedListing = SEED_LISTINGS.some((seed) => seed.id === item.id);
+  const imageUrl = getProductImage(item.cropName, item.imageUrl, isSeedListing);
+  const cleanedImageUrls = (item.imageUrls || []).filter((url) => Boolean(url));
+  return {
+    ...item,
+    imageUrl,
+    imageUrls: cleanedImageUrls.length ? cleanedImageUrls : imageUrl ? [imageUrl] : [],
+  };
+}
+
+function sanitizeListings(items: ProduceListing[]) {
+  const ordered = [...items].sort((a, b) => {
+    const at = Date.parse(a.timestamp || "");
+    const bt = Date.parse(b.timestamp || "");
+    return (Number.isNaN(bt) ? 0 : bt) - (Number.isNaN(at) ? 0 : at);
+  });
+  const seenIds = new Set<string>();
+  const seenSignatures = new Set<string>();
+  const next: ProduceListing[] = [];
+  for (const raw of ordered) {
+    const item = normalizeListing(raw);
+    if (seenIds.has(item.id)) continue;
+    const sig = listingSignature(item);
+    if (seenSignatures.has(sig)) continue;
+    seenIds.add(item.id);
+    seenSignatures.add(sig);
+    next.push(item);
   }
-  return merged;
+  return next;
 }
 
 export function DashboardDataProvider({ children }: { children: React.ReactNode }) {
@@ -81,13 +120,31 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
   const [drivers] = useState<Driver[]>(SEED_DRIVERS);
   const [vehicles] = useState<Vehicle[]>(SEED_VEHICLES);
   const [warehouses, setWarehouses] = useState<Warehouse[]>(SEED_WAREHOUSES);
-  const [listings, setListings] = useState<ProduceListing[]>(SEED_LISTINGS);
+  const [listings, setListings] = useState<ProduceListing[]>(() => sanitizeListings(SEED_LISTINGS));
   const [orders, setOrders] = useState<Order[]>(SEED_ORDERS);
   const [activeTrips, setActiveTrips] = useState<DeliveryTrip[]>([]);
   const localListingsKey = React.useMemo(
     () => `agri:listings:${email || "anonymous"}`,
     [email]
   );
+
+  React.useEffect(() => {
+    try {
+      if (localStorage.getItem(LISTINGS_IMAGE_MIGRATION_KEY) === "done") return;
+      const keysToMigrate = [SHARED_LISTINGS_KEY, localListingsKey];
+      keysToMigrate.forEach((key) => {
+        const raw = localStorage.getItem(key);
+        if (!raw) return;
+        const parsed = JSON.parse(raw) as ProduceListing[];
+        if (!Array.isArray(parsed)) return;
+        const migrated = sanitizeListings(parsed);
+        localStorage.setItem(key, JSON.stringify(migrated));
+      });
+      localStorage.setItem(LISTINGS_IMAGE_MIGRATION_KEY, "done");
+    } catch {
+      // Ignore migration failures and continue with runtime normalization.
+    }
+  }, [localListingsKey]);
 
   React.useEffect(() => {
     try {
@@ -101,6 +158,19 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
       // Ignore local cache parse/storage failures
     }
   }, [localListingsKey]);
+
+  React.useEffect(() => {
+    try {
+      const raw = localStorage.getItem(SHARED_LISTINGS_KEY);
+      if (!raw) return;
+      const sharedListings = JSON.parse(raw) as ProduceListing[];
+      if (Array.isArray(sharedListings) && sharedListings.length > 0) {
+        setListings((prev) => mergeListings(prev, sharedListings));
+      }
+    } catch {
+      // Ignore local cache parse/storage failures
+    }
+  }, []);
 
   React.useEffect(() => {
     authFetch("/api/products")
@@ -166,14 +236,50 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
     [activeTrips, currentDriverId]
   );
 
+  const persistSharedListings = useCallback((items: ProduceListing[]) => {
+    try {
+      localStorage.setItem(SHARED_LISTINGS_KEY, JSON.stringify(sanitizeListings(items)));
+    } catch {
+      // Ignore local cache write failures
+    }
+  }, []);
+
   const addListing = useCallback((listing: ProduceListing) => {
-    setListings((prev) => [listing, ...prev]);
+    setListings((prev) => sanitizeListings([listing, ...prev]));
+    try {
+      const raw = localStorage.getItem(SHARED_LISTINGS_KEY);
+      const sharedListings = raw ? (JSON.parse(raw) as ProduceListing[]) : [];
+      persistSharedListings(mergeListings([listing], Array.isArray(sharedListings) ? sharedListings : []));
+    } catch {
+      // Ignore local cache write failures
+    }
     authFetch("/api/products", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(listing),
     }).catch(() => undefined);
-  }, []);
+  }, [persistSharedListings]);
+
+  const updateListing = useCallback(
+    (listingId: string, patch: Partial<ProduceListing>) => {
+      setListings((prev) => {
+        const next = sanitizeListings(prev.map((item) =>
+          item.id === listingId && item.farmerId === currentFarmerId
+            ? { ...item, ...patch, id: item.id, farmerId: item.farmerId }
+            : item
+        ));
+        persistSharedListings(next.filter((item) => !SEED_LISTINGS.some((seed) => seed.id === item.id)));
+        return next;
+      });
+
+      authFetch(`/api/products/${listingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...patch, farmerId: currentFarmerId }),
+      }).catch(() => undefined);
+    },
+    [currentFarmerId, persistSharedListings]
+  );
 
   const syncListings = useCallback((local: ProduceListing[]) => {
     const synced = local.map((item) => ({ ...item, syncStatus: "SYNCED" as const }));
@@ -303,6 +409,7 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
       myOrdersAsBuyer,
       myTrips,
       addListing,
+      updateListing,
       syncListings,
       placeOrder,
       addTrip,
@@ -330,6 +437,7 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
       myOrdersAsBuyer,
       myTrips,
       addListing,
+      updateListing,
       syncListings,
       placeOrder,
       addTrip,

@@ -8,6 +8,7 @@ import IntegratedGoogleMap from "../../components/IntegratedGoogleMap";
 import BuyersPanel from "../../components/BuyersPanel";
 import { CargoStatus, PaymentStatus } from "../../types";
 import LiveLogisticsSimulation from "../../components/logistics/LiveLogisticsSimulation";
+import { SEED_LISTINGS } from "../../data";
 
 const PRICE_CHANGES = [
   { day: "Mon", maize: 40, beans: 92 },
@@ -87,8 +88,10 @@ export function BuyerMarketplace() {
   const { buyers, listings, orders, currentBuyerId, placeOrder } = useDashboardData();
   const [county, setCounty] = useState("all");
   const [crop, setCrop] = useState("all");
+  const seedListingIds = new Set(SEED_LISTINGS.map((item) => item.id));
 
   const filtered = listings.filter((l) => {
+    if (seedListingIds.has(l.id)) return false;
     if (l.quantityKg <= 0) return false;
     if (county !== "all" && (l.county || "").toLowerCase() !== county.toLowerCase()) return false;
     if (crop !== "all" && !l.cropName.toLowerCase().includes(crop.toLowerCase())) return false;
@@ -97,7 +100,7 @@ export function BuyerMarketplace() {
 
   return (
     <div>
-      <PageHeader title="Marketplace" description="Browse verified produce with quality and moisture data." />
+      <PageHeader title="Marketplace" description="Browse live farmer-listed produce ready for procurement." />
       <div className="flex flex-wrap gap-3 mb-6 p-4 bg-white rounded-2xl border border-slate-200">
         <Filter className="w-4 h-4 text-slate-400 mt-2" />
         <select className="text-sm border rounded-lg px-3 py-2" value={county} onChange={(e) => setCounty(e.target.value)}>

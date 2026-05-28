@@ -79,7 +79,7 @@ export const SEED_BUYERS: Buyer[] = [
   {
     id: "B-201",
     name: "Nairobi Fresh Wholesalers",
-    companyName: "Twiga-Style Agro Distributors",
+    companyName: "Nairobi Fresh Agro Distributors",
     phoneNumber: "+254 701 556677",
     location: {
       city: "Nairobi",
@@ -350,7 +350,7 @@ export const SEED_ORDERS: Order[] = [
     paymentStatus: PaymentStatus.COMPLETED,
     mpesaReceipt: "QRE7901LKF8",
     status: CargoStatus.IN_WAREHOUSE,
-    deliveryAddress: "Twiga Warehouse, Industrial Area Gate 4, Nairobi",
+    deliveryAddress: "Nairobi Distribution Hub, Industrial Area Gate 4, Nairobi",
     createdAt: "2026-05-20T16:00:00Z",
   }
 ];
