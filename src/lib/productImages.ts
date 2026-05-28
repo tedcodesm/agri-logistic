@@ -16,8 +16,12 @@ const IMAGE_BY_CROP: Record<string, string> = {
 };
 
 export function getProductImage(cropName: string, preferredUrl?: string, allowFallback = true) {
-  if (preferredUrl && !preferredUrl.includes("images.unsplash.com")) return preferredUrl;
+  const isInvalidPreferred =
+    !preferredUrl ||
+    preferredUrl.startsWith("blob:") ||
+    preferredUrl.includes("images.unsplash.com");
+  if (!isInvalidPreferred) return preferredUrl;
   if (!allowFallback) return "";
   const key = cropName.trim().toLowerCase();
-  return IMAGE_BY_CROP[key] || "/assets/products/generic-produce.jpg";
+  return IMAGE_BY_CROP[key] || "";
 }

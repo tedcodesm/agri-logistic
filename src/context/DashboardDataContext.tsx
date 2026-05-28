@@ -62,6 +62,7 @@ interface DashboardDataContextValue {
 const DashboardDataContext = createContext<DashboardDataContextValue | null>(null);
 const SHARED_LISTINGS_KEY = "agri:listings:shared";
 const LISTINGS_IMAGE_MIGRATION_KEY = "agri:listings:image-migration:v1";
+const LISTINGS_IMAGE_MIGRATION_V2_KEY = "agri:listings:image-migration:v2";
 
 function mergeListings(primary: ProduceListing[], secondary: ProduceListing[]) {
   return sanitizeListings([...primary, ...secondary]);
@@ -69,7 +70,12 @@ function mergeListings(primary: ProduceListing[], secondary: ProduceListing[]) {
 
 function normalizeListing(item: ProduceListing): ProduceListing {
   const isSeedListing = SEED_LISTINGS.some((seed) => seed.id === item.id);
-  const imageUrl = getProductImage(item.cropName, item.imageUrl, isSeedListing);
+  const shouldFallbackToAssetImage =
+    isSeedListing ||
+    !item.imageUrl ||
+    item.imageUrl.startsWith("blob:") ||
+    item.imageUrl.includes("images.unsplash.com");
+  const imageUrl = getProductImage(item.cropName, item.imageUrl, shouldFallbackToAssetImage);
   const cleanedImageUrls = (item.imageUrls || []).filter((url) => Boolean(url));
   return {
     ...item,
@@ -126,6 +132,24 @@ export function DashboardDataProvider({ children }: { children: React.ReactNode 
         localStorage.setItem(key, JSON.stringify(migrated));
       });
       localStorage.setItem(LISTINGS_IMAGE_MIGRATION_KEY, "done");
+    } catch {
+      // Ignore migration failures and continue with runtime normalization.
+    }
+  }, [localListingsKey]);
+
+  React.useEffect(() => {
+    try {
+      if (localStorage.getItem(LISTINGS_IMAGE_MIGRATION_V2_KEY) === "done") return;
+      const keysToMigrate = [SHARED_LISTINGS_KEY, localListingsKey];
+      keysToMigrate.forEach((key) => {
+        const raw = localStorage.getItem(key);
+        if (!raw) return;
+        const parsed = JSON.parse(raw) as ProduceListing[];
+        if (!Array.isArray(parsed)) return;
+        const migrated = sanitizeListings(parsed);
+        localStorage.setItem(key, JSON.stringify(migrated));
+      });
+      localStorage.setItem(LISTINGS_IMAGE_MIGRATION_V2_KEY, "done");
     } catch {
       // Ignore migration failures and continue with runtime normalization.
     }

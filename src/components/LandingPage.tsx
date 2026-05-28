@@ -57,7 +57,7 @@ export default function LandingPage({ onEnterMarketplace, onNavigate }: LandingP
               transition={{ duration: 0.6, delay: 0.1 }}
               className="text-5xl md:text-7xl font-bold text-white tracking-tight leading-tight font-display"
             >
-              The Intelligent Operating System for <span className="text-transparent bg-clip-text bg-gradient-to-r from-agri-emerald to-agri-cyan">African Agri-Logistics</span>
+              AI-Powered Logistics for Smarter Agricultural Trade
             </motion.h1>
             
             <motion.p 

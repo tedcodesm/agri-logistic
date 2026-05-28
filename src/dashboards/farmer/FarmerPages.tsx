@@ -166,7 +166,6 @@ export function FarmerProduce() {
   const [deliveryAvailable, setDeliveryAvailable] = useState(true);
   const [transportNeeded, setTransportNeeded] = useState(false);
   const [images, setImages] = useState<{ id: string; url: string; progress: number }[]>([]);
-  const [savedImagePath, setSavedImagePath] = useState("");
   const [aiTip, setAiTip] = useState<string>("");
   const [showForm, setShowForm] = useState(false);
   const [editingListingId, setEditingListingId] = useState<string | null>(null);
@@ -227,7 +226,6 @@ export function FarmerProduce() {
     setDeliveryAvailable(true);
     setTransportNeeded(false);
     setImages([]);
-    setSavedImagePath("");
     setEditingListingId(null);
   }
 
@@ -251,7 +249,6 @@ export function FarmerProduce() {
           ? [{ id: `${listing.id}-main`, url: listing.imageUrl, progress: 100 }]
           : []
     );
-    setSavedImagePath(listing.imageUrl && !listing.imageUrl.startsWith("blob:") ? listing.imageUrl : "");
     setEditingListingId(listing.id);
     setShowForm(true);
   }
@@ -263,7 +260,7 @@ export function FarmerProduce() {
   function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     const selectedUrls = images.map((img) => img.url).filter(Boolean);
-    const resolvedImage = selectedUrls[0] || savedImagePath.trim() || (editingListingId ? undefined : "");
+    const resolvedImage = selectedUrls[0] || (editingListingId ? undefined : "");
     const listing: ProduceListing = {
       id: editingListingId || `L-${Date.now()}`,
       farmerId: currentFarmerId,
@@ -283,7 +280,7 @@ export function FarmerProduce() {
       description: description || `Fresh ${cropName} from ${county}`,
       spoilageRiskPct: 6,
       imageUrl: resolvedImage,
-      imageUrls: selectedUrls.length ? selectedUrls : savedImagePath.trim() ? [savedImagePath.trim()] : [],
+      imageUrls: selectedUrls,
       estimatedDeliveryEtaHours: deliveryAvailable ? 6 : 0,
       trustScore: 96,
       timestamp: new Date().toISOString(),
@@ -352,16 +349,6 @@ export function FarmerProduce() {
                 <UploadCloud className="w-4 h-4 text-agri-emerald" /> Drag & drop crop images or click to upload
                 <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleFileSelect(e.target.files)} />
               </label>
-              <p className="text-[11px] text-slate-500 mt-2">
-                Store downloaded product photos in <strong>public/assets/products</strong> and reference them below (example:{" "}
-                <code>/assets/products/irish-potatoes.jpg</code>).
-              </p>
-              <input
-                className="mt-2 w-full border rounded-xl px-3 py-2 text-sm"
-                placeholder="Saved image path (optional): /assets/products/irish-potatoes.jpg"
-                value={savedImagePath}
-                onChange={(e) => setSavedImagePath(e.target.value)}
-              />
               {images.length > 0 && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
                   {images.map((img) => (
