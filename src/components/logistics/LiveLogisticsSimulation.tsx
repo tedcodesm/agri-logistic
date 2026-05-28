@@ -17,6 +17,7 @@ import {
   Truck,
   Warehouse,
 } from "lucide-react";
+import { getGoogleMapsKey, isValidGoogleMapsKey } from "../../lib/mapsKey";
 
 type ShipmentState =
   | "Order Created"
@@ -54,14 +55,6 @@ interface RouteDefinition {
 interface LiveLogisticsSimulationProps {
   compact?: boolean;
 }
-
-const API_KEY =
-  process.env.GOOGLE_MAPS_PLATFORM_KEY ||
-  (import.meta as any).env?.VITE_GOOGLE_MAPS_PLATFORM_KEY ||
-  (globalThis as any).GOOGLE_MAPS_PLATFORM_KEY ||
-  "";
-
-const hasValidKey = Boolean(API_KEY) && API_KEY !== "YOUR_API_KEY";
 
 const SHIPMENT_STATES: ShipmentState[] = [
   "Order Created",
@@ -270,6 +263,7 @@ function MapMarkers({
 }
 
 export default function LiveLogisticsSimulation({ compact = false }: LiveLogisticsSimulationProps) {
+  const [apiKey, setApiKey] = useState("");
   const [selectedRouteId, setSelectedRouteId] = useState(ROUTES[0].id);
   const [routeProgress, setRouteProgress] = useState<Record<string, number>>({
     [ROUTES[0].id]: 0,
@@ -353,6 +347,11 @@ export default function LiveLogisticsSimulation({ compact = false }: LiveLogisti
   );
   const currentState = SHIPMENT_STATES[stateIndex];
   const etaMinutes = Math.max(4, Math.round(((selectedPath.length - 1 - selectedProgress) / 2.5)));
+  const hasValidKey = isValidGoogleMapsKey(apiKey);
+
+  useEffect(() => {
+    getGoogleMapsKey().then(setApiKey);
+  }, []);
 
   return (
     <div className={`${compact ? "" : "mt-8"}`}>
@@ -414,7 +413,7 @@ export default function LiveLogisticsSimulation({ compact = false }: LiveLogisti
           </div>
           <div className={`${compact ? "h-[360px]" : "h-[460px]"} relative`}>
             {hasValidKey ? (
-              <APIProvider apiKey={API_KEY} version="weekly">
+              <APIProvider apiKey={apiKey} version="weekly">
                 <Map
                   defaultCenter={{ lat: -1.2921, lng: 36.8219 }}
                   defaultZoom={6}

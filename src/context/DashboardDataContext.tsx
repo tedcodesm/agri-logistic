@@ -67,17 +67,6 @@ function mergeListings(primary: ProduceListing[], secondary: ProduceListing[]) {
   return sanitizeListings([...primary, ...secondary]);
 }
 
-function listingSignature(item: ProduceListing) {
-  return [
-    item.farmerId,
-    item.cropName.trim().toLowerCase(),
-    item.quantityKg,
-    item.pricePerKgKes,
-    item.county || "",
-    item.harvestDate || "",
-  ].join("|");
-}
-
 function normalizeListing(item: ProduceListing): ProduceListing {
   const isSeedListing = SEED_LISTINGS.some((seed) => seed.id === item.id);
   const imageUrl = getProductImage(item.cropName, item.imageUrl, isSeedListing);
@@ -96,15 +85,11 @@ function sanitizeListings(items: ProduceListing[]) {
     return (Number.isNaN(bt) ? 0 : bt) - (Number.isNaN(at) ? 0 : at);
   });
   const seenIds = new Set<string>();
-  const seenSignatures = new Set<string>();
   const next: ProduceListing[] = [];
   for (const raw of ordered) {
     const item = normalizeListing(raw);
     if (seenIds.has(item.id)) continue;
-    const sig = listingSignature(item);
-    if (seenSignatures.has(sig)) continue;
     seenIds.add(item.id);
-    seenSignatures.add(sig);
     next.push(item);
   }
   return next;

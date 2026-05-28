@@ -16,7 +16,7 @@ const IMAGE_BY_CROP: Record<string, string> = {
 };
 
 export function getProductImage(cropName: string, preferredUrl?: string, allowFallback = true) {
-  if (preferredUrl) return preferredUrl;
+  if (preferredUrl && !preferredUrl.includes("images.unsplash.com")) return preferredUrl;
   if (!allowFallback) return "";
   const key = cropName.trim().toLowerCase();
   return IMAGE_BY_CROP[key] || "/assets/products/generic-produce.jpg";

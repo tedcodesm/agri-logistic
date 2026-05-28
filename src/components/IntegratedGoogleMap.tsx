@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { APIProvider, Map, AdvancedMarker, Pin, InfoWindow, useAdvancedMarkerRef } from "@vis.gl/react-google-maps";
 import { Compass } from "lucide-react";
+import { getGoogleMapsKey, isValidGoogleMapsKey } from "../lib/mapsKey";
 
 interface MapMarker {
   id: string;
@@ -18,15 +19,6 @@ interface IntegratedGoogleMapProps {
   markers: MapMarker[];
   height?: string;
 }
-
-// Ensure support for multiple env injection pipelines
-const API_KEY =
-  process.env.GOOGLE_MAPS_PLATFORM_KEY ||
-  (import.meta as any).env?.VITE_GOOGLE_MAPS_PLATFORM_KEY ||
-  (globalThis as any).GOOGLE_MAPS_PLATFORM_KEY ||
-  "";
-
-const hasValidKey = Boolean(API_KEY) && API_KEY !== "YOUR_API_KEY";
 
 function MarkerWithInfo({ marker }: { marker: MapMarker; key?: string }) {
   const [markerRef, mInstance] = useAdvancedMarkerRef();
@@ -69,6 +61,14 @@ function MarkerWithInfo({ marker }: { marker: MapMarker; key?: string }) {
 }
 
 export default function IntegratedGoogleMap({ center, zoom, markers, height = "250px" }: IntegratedGoogleMapProps) {
+  const [apiKey, setApiKey] = React.useState("");
+
+  React.useEffect(() => {
+    getGoogleMapsKey().then(setApiKey);
+  }, []);
+
+  const hasValidKey = isValidGoogleMapsKey(apiKey);
+
   if (!hasValidKey) {
     return (
       <div
@@ -95,7 +95,7 @@ export default function IntegratedGoogleMap({ center, zoom, markers, height = "2
 
   // Render authentic Google Map with Attribution IDs according to Constitution Rule 2
   return (
-    <APIProvider apiKey={API_KEY} version="weekly">
+    <APIProvider apiKey={apiKey} version="weekly">
       <div style={{ height }} className="w-full rounded-xl overflow-hidden border border-slate-200">
         <Map
           defaultCenter={center}

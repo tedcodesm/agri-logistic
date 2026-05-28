@@ -29,6 +29,9 @@ registerAuthRoutes(app);
 registerAfricasTalkingRoutes(app, PORT);
 registerMarketRoutes(app);
 registerPesapalRoutes(app, PORT);
+app.get("/api/config/maps-key", (_req: Request, res: Response) => {
+  res.json({ apiKey: process.env.GOOGLE_MAPS_PLATFORM_KEY || "" });
+});
 
 // Initialize Gemini safely, handling absolute missing keys gracefully
 let ai: GoogleGenAI | null = null;
